@@ -65,45 +65,19 @@ class TextProductMatch(layers.Layer):
                 layers.Dense(self.fc_dim),
                 layers.BatchNormalization()
             ])
-            # self.extract_features_layer = BertPoolingLayer()
         
-        # self.pooling_layer = BertPoolingLayer
 
     def call(self, inputs, training=None, mask=None):
         x, y = inputs
-
         x = self.pooling_layer()(x)
         if self.use_fc:
             x = self.extract_features_layer(x)
 
         x = self.metric_layer([x,y])
-        x = layers.Flatten()(x)
-        x = layers.Softmax(dtype="float64")(x)
+        x = layers.Softmax(dtype="float32")(x)
 
         return x
 
     def compute_output_shape(self, input_shape):
         return (None, self.n_classes)
-
-def BertPoolingLayer():
-    model = tf.keras.Sequential([
-        tf.keras.layers.Dropout(0.1),
-        tf.keras.layers.Conv1D(768, 2,padding='same'),
-        tf.keras.layers.LeakyReLU(),
-
-        tf.keras.layers.Dropout(0.1),
-        tf.keras.layers.Conv1D(128, 2,padding='same'),
-        tf.keras.layers.LeakyReLU(),
-
-        tf.keras.layers.Dropout(0.1),
-        tf.keras.layers.Conv1D(64, 2,padding='same'),
-        tf.keras.layers.LeakyReLU(),
-
-        tf.keras.layers.Dropout(0.1),
-        tf.keras.layers.Conv1D(31, 2,padding='same'),
-        tf.keras.layers.LeakyReLU(),
-
-        tf.keras.layers.Dense(512)
-    ])
-
-    return model
+    

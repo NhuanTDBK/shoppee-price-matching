@@ -35,7 +35,7 @@ class ArcFace(layers.Layer):
     Implementation of https://arxiv.org/pdf/1801.07698.pdf
     """
 
-    def __init__(self, num_classes, margin=0.5, scale=64, **kwargs):
+    def __init__(self, num_classes, margin=0.3, scale=30, **kwargs):
         super().__init__(**kwargs)
         self.num_classes = num_classes
         self.margin = margin
