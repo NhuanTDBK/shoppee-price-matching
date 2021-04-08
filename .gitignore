@@ -1,0 +1,6 @@
+**.csv
+**.json
+train_images/**
+test_images/**
+**.zip
+input/**
