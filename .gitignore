@@ -4,3 +4,5 @@ train_images/**
 test_images/**
 **.zip
 input/**
+logs/**
+.ipynb_checkpoints/**

@@ -23,19 +23,21 @@ params = {
     "MAX_LEN": 50,
     "MODEL_NAME": 'bert-base-multilingual-uncased',
     "POOLING": "global_avg_1d",
-    "EPOCHS": 5,
+    "EPOCHS": 10,
     "BATCH_SIZE": 32,
-    "METRIC": "adacos"
+    "METRIC": "circle_cl",
+    "LAST_HIDDEN_STATES": 3 
 }
+
 PATH_NAME = 'saved/%s/v1'%(params["METRIC"])
 os.makedirs(PATH_NAME,exist_ok=True)
 
-# word_model = transformers.TFAutoModel.from_pretrained(params["MODEL_NAME"])
-# tokenizer = transformers.AutoTokenizer.from_pretrained(params["MODEL_NAME"])
-
+config = transformers.BertConfig.from_pretrained(params["MODEL_NAME"])
+config.output_hidden_states = True
+word_model = TFBertModel.from_pretrained(params["MODEL_NAME"],config=config)
 
 tokenizer = BertTokenizer.from_pretrained(params["MODEL_NAME"])
-word_model = TFBertModel.from_pretrained(params["MODEL_NAME"])
+
 
 
 def encoder(titles: Union[str]):
@@ -74,9 +76,6 @@ def main():
     
     cv = KFold(5, random_state=4111, shuffle=True)
 
-
-
-
     for (train_idx, test_idx) in cv.split(X[0],y):
         X_train, y_train, X_test, y_test = (X[0][train_idx],X[1][train_idx],X[2][train_idx]), y[train_idx],(X[0][test_idx],X[1][test_idx],X[2][test_idx]), y[test_idx]
         
@@ -101,7 +100,9 @@ def main():
                 batch_size=params["BATCH_SIZE"],
                 validation_data=([X_test,y_test], y_test),
                 callbacks=callbacks)
-        model.save(PATH_NAME)
+        # model.save(PATH_NAME)
+
+        break
         
 def create_model():
     ids = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
@@ -110,13 +111,21 @@ def create_model():
 
     labels_onehot = tf.keras.layers.Input(shape=(params["N_CLASSES"]), dtype=tf.int32)
 
-    x = word_model(ids, attention_mask=att, token_type_ids=tok)[0]
-    x = TextProductMatch(params["N_CLASSES"],
+    x = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
+    x1 = tf.stack([x[-i-1] for i in range(params["LAST_HIDDEN_STATES"])])
+    x1_mean = tf.math.reduce_mean(x1, axis=0)
+    x1_max = tf.math.reduce_max(x1, axis=0)
+
+    x1 = tf.concat([x1_mean, x1_max],axis=-1)
+
+    x1 = TextProductMatch(params["N_CLASSES"],
                         params["POOLING"],
                         metric=params["METRIC"],
-                        use_fc=True)([x, labels_onehot])
+                        use_fc=True)([x1, labels_onehot])
 
-    model = tf.keras.Model(inputs=[[ids, att, tok], labels_onehot], outputs=[x])
+    model = tf.keras.Model(inputs=[[ids, att, tok], labels_onehot], outputs=[x1])
+
+    print(model.summary())
 
     return model       
 if __name__ == "__main__":

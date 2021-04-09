@@ -3,6 +3,8 @@ from tensorflow.keras import layers, regularizers
 
 from modelling.metrics import ArcFace, AdaCos, CircleLoss, CircleLossCL
 
+from modelling.pooling import *
+
 metric_layer_dict = {
     "arcface": ArcFace,
     "adacos": AdaCos,
@@ -12,9 +14,10 @@ metric_layer_dict = {
 
 }
 pooling_dict = {
-    # "mac": MAC,
-    # "gem": GeM,
-    # "spoc": SPoC,
+    "mac": MAC,
+    "gem": GeM,
+    "spoc": SPoC,
+
     "global_avg_1d": layers.GlobalAveragePooling1D,
     "global_max_1d": layers.GlobalMaxPool1D,
 }
@@ -35,8 +38,8 @@ class TextProductMatch(layers.Layer):
                  use_fc=True,
                  dropout=0.0,
                  metric="arcface",
-                 s=30.0,
-                 margin=0.5,
+                 s=24.0,
+                 margin=0.3,
                  fc_dim=512,
                  ls_eps=0.0,
                  theta_zero=0.85,
@@ -65,9 +68,6 @@ class TextProductMatch(layers.Layer):
                 layers.Dense(self.fc_dim),
                 layers.BatchNormalization()
             ])
-            # self.extract_features_layer = BertPoolingLayer()
-        
-        # self.pooling_layer = BertPoolingLayer
 
     def call(self, inputs, training=None, mask=None):
         x, y = inputs
@@ -77,33 +77,9 @@ class TextProductMatch(layers.Layer):
             x = self.extract_features_layer(x)
 
         x = self.metric_layer([x,y])
-        x = layers.Flatten()(x)
         x = layers.Softmax(dtype="float64")(x)
 
         return x
 
     def compute_output_shape(self, input_shape):
         return (None, self.n_classes)
-
-def BertPoolingLayer():
-    model = tf.keras.Sequential([
-        tf.keras.layers.Dropout(0.1),
-        tf.keras.layers.Conv1D(768, 2,padding='same'),
-        tf.keras.layers.LeakyReLU(),
-
-        tf.keras.layers.Dropout(0.1),
-        tf.keras.layers.Conv1D(128, 2,padding='same'),
-        tf.keras.layers.LeakyReLU(),
-
-        tf.keras.layers.Dropout(0.1),
-        tf.keras.layers.Conv1D(64, 2,padding='same'),
-        tf.keras.layers.LeakyReLU(),
-
-        tf.keras.layers.Dropout(0.1),
-        tf.keras.layers.Conv1D(31, 2,padding='same'),
-        tf.keras.layers.LeakyReLU(),
-
-        tf.keras.layers.Dense(512)
-    ])
-
-    return model
