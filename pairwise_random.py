@@ -7,16 +7,6 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 
-tf.config.set_visible_devices([], 'GPU')
-if tf.test.gpu_device_name():
-    print('GPU found')
-else:
-    print("No GPU found")
-
-
-
-
-
 import transformers
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import KFold
@@ -36,7 +26,7 @@ params = {
     "MODEL_NAME": 'bert-base-multilingual-uncased',
     "POOLING": "global_avg_1d",
     "EPOCHS": 5,
-    "BATCH_SIZE": 4,
+    "BATCH_SIZE": 8,
     # "METRIC": "adacos",
     "LAST_HIDDEN_STATES": 3 
 }
