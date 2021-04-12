@@ -37,9 +37,9 @@ class TextSemiLoader(tf.keras.utils.Sequence):
         
         # batch_y = self.y[idx * self.batch_size:(idx + 1) *self.batch_size]
 
-    # def on_epoch_end(self):
-    #     'Updates indexes after each epoch'
-    #     if self.shuffle == True:
-    #         np.random.shuffle(self.indexes)
+    def on_epoch_end(self):
+        # 'Updates indexes after each epoch'
+        if self.shuffle == True:
+            np.random.shuffle(self.indexes)
 
     
