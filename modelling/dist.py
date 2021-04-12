@@ -1,5 +1,6 @@
 import tensorflow as tf 
 
+@tf.function
 def pairwise_dist(x1, x2, eps=1e-6):
     D = tf.subtract(x1, x2)
     return tf.sqrt(tf.reduce_sum(tf.square(D+eps)))

@@ -91,6 +91,11 @@ x1 = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
 embedding = BertLastHiddenState(multi_sample_dropout=True)(x1)
 model = tf.keras.models.Model(inputs=[ids, att, tok], outputs=[embedding])
 
+optimizer = tf.keras.optimizers.Adam()
+loss_fn = contrastive_loss
+
+model.compile(optimizer=optimizer, loss=loss_fn)
+
 
 # In[11]:
 
@@ -98,8 +103,7 @@ model = tf.keras.models.Model(inputs=[ids, att, tok], outputs=[embedding])
 print(model.summary())
 
 generator = RandomTextSemiLoader(df["title"].to_numpy(), df["label"].to_numpy(),batch_size=params["BATCH_SIZE"],shuffle=True)
-optimizer = tf.keras.optimizers.Adam()
-loss_fn = contrastive_loss
+
 
 @tf.function
 def train_step(x1,x2, y):
