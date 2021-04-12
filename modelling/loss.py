@@ -1,17 +1,21 @@
 import tensorflow as tf
 
-def contrastive(y_true, y_pred, eps, margin):
-    y_pred = tf.convert_to_tensor(y_pred)
-    y_true = tf.cast(y_true, y_pred.dtype)
+def contrastive_loss(y_true, y_pred, eps=1e-07, margin=0.7):
+    # y_pred = tf.convert_to_tensor(y_pred)
+    # y_true = tf.cast(y_true, y_pred.dtype)
     
-    D = tf.math.sqrt(tf.math.reduce_sum(tf.math.square(y_pred + eps),))
+    # D = tf.math.sqrt(tf.math.reduce_sum(tf.math.square(y_pred + eps),))
 
-    return 0.5 * y_true * tf.math.square(D) + 0.5 * (1-y_true) * tf.math.square(
-            tf.math.maximum(0, margin -  y_pred)
-    )
+    # return 0.5 * y_true * tf.math.square(D) + 0.5 * (1-y_true) * tf.math.square(
+    #         tf.math.maximum(0, margin -  y_pred)
+    # )
+    y_pred = tf.convert_to_tensor(y_pred)
+    y_true = tf.dtypes.cast(y_true, y_pred.dtype)
+    loss = 0.5 * y_true * tf.math.square(y_pred) + 0.5 * (1.0 - y_true) * tf.math.square(tf.math.maximum(margin - y_pred, 0.0))
+    return tf.reduce_sum(loss)
 
 class ContrastiveLoss(tf.keras.losses.Loss):
-    def __init__(self, margin =0.7, eps=1e-07):
+    def __init__(self, margin =0.7, eps=1e-07, reduction=tf.keras.losses.Reduction.SUM):
         self.margin = margin
         self.eps = eps
     
@@ -26,6 +30,6 @@ if __name__ == "__main__":
     y_true = tf.constant([0,1,0],dtype=tf.int8)
 
     t = ContrastiveLoss()
-    print(t.call(y_true, y_pred))
+    print(t(y_true, y_pred))
 
 
