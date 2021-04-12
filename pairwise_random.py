@@ -22,10 +22,11 @@ from sklearn.model_selection import KFold
 from transformers import BertTokenizer, TFBertModel
 from dataloader.semi_loader import RandomTextSemiLoader
 from features.pool import BertLastHiddenState
-import time
+
+
 from modelling.loss import contrastive_loss
 from modelling.dist import pairwise_dist
-
+from modelling.pooling import *
 
 
 params = {
@@ -38,11 +39,8 @@ params = {
     # "METRIC": "adacos",
     "LAST_HIDDEN_STATES": 3 
 }
-# PATH_NAME = 'saved/arcface/v1'
-# os.makedirs(PATH_NAME,exist_ok=True)
 
 
-from modelling.pooling import *
 
 
 

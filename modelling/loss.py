@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+@tf.function
 def contrastive_loss(y_true, y_pred, eps=1e-07, margin=0.7):
     # y_pred = tf.convert_to_tensor(y_pred)
     # y_true = tf.cast(y_true, y_pred.dtype)
