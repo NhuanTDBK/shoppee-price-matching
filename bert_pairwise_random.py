@@ -18,7 +18,7 @@ from modelling.pooling import *
 params = {
     "N_CLASSES": 11014,
     "MAX_LEN": 70,
-    "MODEL_NAME": 'xlm-roberta-base',
+    "MODEL_NAME": 'bert-base-multilingual-uncased',
     "POOLING": "global_avg_1d",
     "EPOCHS": 5,
     "BATCH_SIZE": 16,
