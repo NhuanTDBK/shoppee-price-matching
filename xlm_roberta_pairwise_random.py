@@ -79,7 +79,8 @@ att = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
 tok = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
 x1 = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
 embedding = BertLastHiddenState(multi_sample_dropout=True)(x1)
-embedding_norm = tf.math.l2_normalize(embedding)
+
+embedding_norm = tf.math.l2_normalize(embedding,axis=1)
 model = tf.keras.models.Model(inputs=[ids, att, tok], outputs=[embedding_norm])
 
 optimizer = tf.keras.optimizers.Adam()
