@@ -91,15 +91,15 @@ generator = RandomTextSemiLoader(df["title"].to_numpy(), df["label"].to_numpy(),
                                  batch_size=params["BATCH_SIZE"],
                                  shuffle=True)
 
-tb_log_dir = os.path.join("/content/drive/MyDrive/shopee-price/logs")
+tb_log_dir = os.path.join("/content/shopee-price/logs")
 model_dir = os.path.join("/content/drive/MyDrive/shopee-price/saved", "pair-%s" % params["MODEL_NAME"])
 
 os.makedirs(tb_log_dir, exist_ok=True)
 os.makedirs(model_dir, exist_ok=True)
 
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-train_log_dir = tb_log_dir + current_time + '/train'
-val_log_dir = tb_log_dir + current_time + '/val'
+train_log_dir = os.path.join(tb_log_dir,current_time,'train')
+val_log_dir = os.path.join(tb_log_dir,current_time,'val')
 
 train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 val_summary_writer = tf.summary.create_file_writer(val_log_dir)
@@ -161,5 +161,9 @@ for epoch in range(params["EPOCHS"]):
         gc.collect()
 
     generator.on_epoch_end()
+
+train_summary_writer.flush()
+val_summary_writer.flush()
+
 
 model.save(model_dir)
