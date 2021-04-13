@@ -83,3 +83,4 @@ class TextProductMatch(layers.Layer):
 
     def compute_output_shape(self, input_shape):
         return (None, self.n_classes)
+

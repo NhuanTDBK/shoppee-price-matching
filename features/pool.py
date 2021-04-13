@@ -1,6 +1,8 @@
+from enum import Enum
+
 import numpy as np
 import tensorflow as tf
-from enum import Enum
+
 
 class PoolingStrategy(Enum):
     NONE = 0
@@ -19,9 +21,11 @@ class PoolingStrategy(Enum):
         except KeyError:
             raise ValueError()
 
+
 class BertLastHiddenState(tf.keras.layers.Layer):
-    def __init__(self, last_hidden_states=3, mode=PoolingStrategy.REDUCE_MEAN_MAX, fc_dim = 512, multi_sample_dropout=False):
-        super(BertLastHiddenState, self).__init__()     
+    def __init__(self, last_hidden_states=3, mode=PoolingStrategy.REDUCE_MEAN_MAX, fc_dim=512,
+                 multi_sample_dropout=False):
+        super(BertLastHiddenState, self).__init__()
 
         self.last_hidden_states = last_hidden_states
         self.mode = mode
@@ -33,11 +37,11 @@ class BertLastHiddenState(tf.keras.layers.Layer):
     def call(self, inputs):
         x = inputs
 
-        x1 = tf.concat([x[-i-1] for i in range(self.last_hidden_states)],axis=-1)
+        x1 = tf.concat([x[-i - 1] for i in range(self.last_hidden_states)], axis=-1)
         if self.mode == PoolingStrategy.REDUCE_MEAN_MAX:
             x1_mean = tf.math.reduce_mean(x1, axis=1)
             x1_max = tf.math.reduce_max(x1, axis=1)
-            x_pool = tf.concat([x1_mean, x1_max],axis=1)
+            x_pool = tf.concat([x1_mean, x1_max], axis=1)
         elif self.mode == PoolingStrategy.CONCATENATION:
             return x1
         elif self.mode == PoolingStrategy.REDUCE_MAX:
@@ -45,11 +49,9 @@ class BertLastHiddenState(tf.keras.layers.Layer):
         elif self.mode == PoolingStrategy.REDUCE_MEAN:
             x_pool = tf.math.reduce_mean(x1, axis=1)
 
-
-        
         if self.multi_sample_dropout:
             dense_fc = []
-            for p in np.linspace(0.1,0.5,5):
+            for p in np.linspace(0.1, 0.5, 5):
                 x1 = tf.keras.layers.Dropout(p)(x_pool)
                 x1 = self.fc(x1)
                 dense_fc.append(x1)
