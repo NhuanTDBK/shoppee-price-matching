@@ -25,6 +25,8 @@ params = {
     "LAST_HIDDEN_STATES": 3
 }
 
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.WARN)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("n")
 
