@@ -25,7 +25,7 @@ params = {
     "MODEL_NAME": 'bert-base-multilingual-uncased',
     "POOLING": "global_avg_1d",
     "EPOCHS": 5,
-    "BATCH_SIZE": 8,
+    "BATCH_SIZE": 16,
     # "METRIC": "adacos",
     "LAST_HIDDEN_STATES": 3 
 }
@@ -136,7 +136,7 @@ for epoch in range(params["EPOCHS"]):
     for step in range(steps_per_epoch):
         X_idx, y = generator.__getitem__(step)        
         
-        train_idx, val_idx, _ , _ = train_test_split(np.arange(len(X_idx)), y, test_size=0.1, random_state=4111, shuffle=True)
+        train_idx, val_idx, _ , _ = train_test_split(np.arange(len(X_idx)), y, test_size=0.3, random_state=4111, shuffle=True)
 
         X_1, X_2 = encoder(X_title[X_idx[:,0][train_idx]]), encoder(X_title[X_idx[:,1][train_idx]])
         X_val_1, X_val_2 = encoder(X_title[X_idx[:,0][val_idx]]), encoder(X_title[X_idx[:,1][val_idx]])
@@ -154,3 +154,5 @@ for epoch in range(params["EPOCHS"]):
 
     epochEnd = time.time()
     print(epochEnd - epochStart)
+
+model.save("saved/pair-%s"%params["MODEL_NAME"])
