@@ -20,7 +20,7 @@ class PoolingStrategy(Enum):
             raise ValueError()
 
 class BertLastHiddenState(tf.keras.layers.Layer):
-    def __init__(self, last_hidden_states=3, mode=PoolingStrategy.REDUCE_MEAN, fc_dim = 512, multi_sample_dropout=False):
+    def __init__(self, last_hidden_states=3, mode=PoolingStrategy.CONCATENATION, fc_dim = 512, multi_sample_dropout=False):
         super(BertLastHiddenState, self).__init__()     
 
         self.last_hidden_states = last_hidden_states

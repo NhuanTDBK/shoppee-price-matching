@@ -136,7 +136,7 @@ for epoch in range(params["EPOCHS"]):
     for step in range(steps_per_epoch):
         X_idx, y = generator.__getitem__(step)        
         
-        train_idx, val_idx, _ , _ = train_test_split(np.arange(len(X_idx)), y)
+        train_idx, val_idx, _ , _ = train_test_split(np.arange(len(X_idx)), y, test_size=0.1, random_state=4111, shuffle=True)
 
         X_1, X_2 = encoder(X_title[X_idx[:,0][train_idx]]), encoder(X_title[X_idx[:,1][train_idx]])
         X_val_1, X_val_2 = encoder(X_title[X_idx[:,0][val_idx]]), encoder(X_title[X_idx[:,1][val_idx]])
