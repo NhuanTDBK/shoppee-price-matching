@@ -1,4 +1,5 @@
-import gc
+import os
+import logging
 import gc
 import time
 from typing import Union
@@ -19,13 +20,15 @@ params = {
     "N_CLASSES": 11014,
     "MAX_LEN": 70,
     "MODEL_NAME": 'bert-base-multilingual-uncased',
-    "POOLING": "global_avg_1d",
     "EPOCHS": 5,
     "BATCH_SIZE": 16,
     "LAST_HIDDEN_STATES": 3
 }
 
-logger = tf.compat.v1.logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("n")
+
+os.makedirs("saved",exist_ok=True)
 
 
 def encoder(titles: Union[str]):
@@ -60,9 +63,6 @@ config.output_hidden_states = True
 word_model = transformers.TFAutoModel.from_pretrained(params["MODEL_NAME"], config=config)
 tokenizer = transformers.AutoTokenizer.from_pretrained(params["MODEL_NAME"])
 
-# In[10]:
-
-
 ids = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
 att = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
 tok = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
@@ -72,17 +72,23 @@ embedding_norm = tf.math.l2_normalize(embedding)
 
 model = tf.keras.models.Model(inputs=[ids, att, tok], outputs=[embedding_norm])
 
-optimizer = tf.keras.optimizers.Adam()
+initial_learning_rate = 0.001
+lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+    initial_learning_rate,
+    decay_steps=100,
+    decay_rate=0.96,
+    staircase=True)
+
+optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+
 loss_fn = contrastive_loss
 
 model.compile(optimizer=optimizer, loss=loss_fn)
 
-# In[11]:
-
-
 print(model.summary())
 
-generator = RandomTextSemiLoader(df["title"].to_numpy(), df["label"].to_numpy(), batch_size=params["BATCH_SIZE"],
+generator = RandomTextSemiLoader(df["title"].to_numpy(), df["label"].to_numpy(),
+                                 batch_size=params["BATCH_SIZE"],
                                  shuffle=True)
 
 
@@ -94,7 +100,7 @@ def train_step(x1, x2, y):
         y_pred = pairwise_dist(X_emb1, X_emb2)
         loss_value = loss_fn(y_true=y, y_pred=y_pred)
 
-        del X_emb1, X_emb2, y
+        del X_emb1, X_emb2
     grads = tape.gradient(loss_value, model.trainable_weights)
     optimizer.apply_gradients(zip(grads, model.trainable_weights))
     return loss_value
