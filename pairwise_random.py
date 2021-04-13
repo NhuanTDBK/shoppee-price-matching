@@ -133,7 +133,7 @@ for epoch in range(params["EPOCHS"]):
     steps_per_epoch = len(generator)
     pbar = tf.keras.utils.Progbar(steps_per_epoch)
 
-    for step in steps_per_epoch:
+    for step in range(steps_per_epoch):
         X_idx, y = generator.__getitem__(step)        
         
         train_idx, val_idx, _ , _ = train_test_split(np.arange(len(X_idx)), y)
