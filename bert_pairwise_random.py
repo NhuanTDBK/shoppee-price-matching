@@ -1,7 +1,7 @@
-import os
-import logging
+import datetime
 import gc
-import time
+import logging
+import os
 from typing import Union
 
 import numpy as np
@@ -28,7 +28,7 @@ params = {
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("n")
 
-os.makedirs("saved",exist_ok=True)
+os.makedirs("saved", exist_ok=True)
 
 
 def encoder(titles: Union[str]):
@@ -68,7 +68,7 @@ att = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
 tok = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
 x1 = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
 embedding = BertLastHiddenState(multi_sample_dropout=True)(x1)
-embedding_norm = tf.math.l2_normalize(embedding,axis=1)
+embedding_norm = tf.math.l2_normalize(embedding, axis=1)
 
 model = tf.keras.models.Model(inputs=[ids, att, tok], outputs=[embedding_norm])
 
@@ -79,7 +79,7 @@ lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
     decay_rate=0.96,
     staircase=True)
 
-optimizer = tf.keras.optimizers.Adam(learning_rate=initial_learning_rate)
+optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
 
 loss_fn = contrastive_loss
 
@@ -91,14 +91,29 @@ generator = RandomTextSemiLoader(df["title"].to_numpy(), df["label"].to_numpy(),
                                  batch_size=params["BATCH_SIZE"],
                                  shuffle=True)
 
+tb_log_dir = os.path.join("/content/drive/MyDrive/shopee-price/logs")
+model_dir = os.path.join("/content/drive/MyDrive/shopee-price/saved", "pair-%s" % params["MODEL_NAME"])
+
+os.makedirs(tb_log_dir, exist_ok=True)
+os.makedirs(model_dir, exist_ok=True)
+
+current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+train_log_dir = tb_log_dir + current_time + '/train'
+val_log_dir = tb_log_dir + current_time + '/val'
+
+train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+val_summary_writer = tf.summary.create_file_writer(val_log_dir)
+
 
 @tf.function
-def train_step(x1, x2, y):
-    with tf.GradientTape() as tape:
+def train_step(x1, x2, y, step):
+    with tf.GradientTape() as tape, train_summary_writer.as_default():
         X_emb1, X_emb2 = model(x1), model(x2)
 
         y_pred = pairwise_dist(X_emb1, X_emb2)
         loss_value = loss_fn(y_true=y, y_pred=y_pred)
+
+        tf.summary.scalar("loss", loss_value, step)
 
         del X_emb1, X_emb2
     grads = tape.gradient(loss_value, model.trainable_weights)
@@ -107,12 +122,14 @@ def train_step(x1, x2, y):
 
 
 @tf.function
-def valid_step(x1, x2, y):
-    X_emb1 = model(x1)
-    X_emb2 = model(x2)
+def valid_step(x1, x2, y, step):
+    X_emb1, X_emb2 = model(x1), model(x2)
 
     y_pred = pairwise_dist(X_emb1, X_emb2)
     loss_value = loss_fn(y_true=y, y_pred=y_pred)
+
+    with val_summary_writer.as_default():
+        tf.summary.scalar("loss", loss_value, step)
 
     del X_emb1, X_emb2, y
 
@@ -120,8 +137,7 @@ def valid_step(x1, x2, y):
 
 
 for epoch in range(params["EPOCHS"]):
-    logger.info("Start epoch {}/{} \n".format((epoch + 1), params["EPOCHS"]))
-    epochStart = time.time()
+    print("Start epoch {}/{} \n".format((epoch + 1), params["EPOCHS"]))
 
     steps_per_epoch = len(generator)
     pbar = tf.keras.utils.Progbar(steps_per_epoch)
@@ -136,8 +152,8 @@ for epoch in range(params["EPOCHS"]):
         X_val_1, X_val_2 = encoder(X_title[X_idx[:, 0][val_idx]]), encoder(X_title[X_idx[:, 1][val_idx]])
         y_train, y_test = y[train_idx], y[val_idx]
 
-        loss_value = train_step(X_1, X_2, y_train)
-        val_loss_value = valid_step(X_val_1, X_val_2, y_test)
+        loss_value = train_step(X_1, X_2, y_train, step)
+        val_loss_value = valid_step(X_val_1, X_val_2, y_test, step)
 
         pbar.update(step, values=[("log_loss", loss_value), ("val_loss", val_loss_value)])
 
@@ -146,7 +162,4 @@ for epoch in range(params["EPOCHS"]):
 
     generator.on_epoch_end()
 
-    epochEnd = time.time()
-    logger.info(epochEnd - epochStart)
-
-model.save("saved/pair-%s" % params["MODEL_NAME"])
+model.save(model_dir)
