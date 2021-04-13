@@ -68,18 +68,18 @@ att = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
 tok = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
 x1 = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
 embedding = BertLastHiddenState(multi_sample_dropout=True)(x1)
-embedding_norm = tf.math.l2_normalize(embedding)
+embedding_norm = tf.math.l2_normalize(embedding,axis=1)
 
 model = tf.keras.models.Model(inputs=[ids, att, tok], outputs=[embedding_norm])
 
 initial_learning_rate = 0.001
 lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
     initial_learning_rate,
-    decay_steps=100,
+    decay_steps=100000,
     decay_rate=0.96,
     staircase=True)
 
-optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+optimizer = tf.keras.optimizers.Adam(learning_rate=initial_learning_rate)
 
 loss_fn = contrastive_loss
 
