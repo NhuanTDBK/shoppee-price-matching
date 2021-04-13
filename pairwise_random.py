@@ -3,18 +3,17 @@ import gc
 import time
 from typing import Union
 
+import transformers
 import tensorflow as tf
 import numpy as np
 import pandas as pd
 
-import transformers
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, train_test_split
 from transformers import BertTokenizer, TFBertModel
+
 from dataloader.semi_loader import RandomTextSemiLoader
 from features.pool import BertLastHiddenState
-
-
 from modelling.loss import contrastive_loss
 from modelling.dist import pairwise_dist
 from modelling.pooling import *
@@ -32,6 +31,7 @@ params = {
 }
 
 
+logger = tf.compat.v1.logging
 
 
 
@@ -111,23 +111,41 @@ def train_step(x1,x2, y):
         # train_acc_metric.update_state(y, logits)
     return loss_value
 
+@tf.function
+def valid_step(x1, x2, y):
+    X_emb1 = model(x1)        
+    X_emb2 = model(x2)
+
+    y_pred = pairwise_dist(X_emb1, X_emb2)
+    # print("Compute prediction")
+    loss_value = loss_fn(y_true=y, y_pred=y_pred)
+    
+    del X_emb1, X_emb2, y
+
+    return loss_value
+
 for epoch in range(params["EPOCHS"]):
-    print("Start epoch {}/{} \n".format((epoch+1),params["EPOCHS"]))
+    logger.info("Start epoch {}/{} \n".format((epoch+1),params["EPOCHS"]))
     epochStart = time.time()
     
     cum_loss = 0.0
-    for step in range(len(generator)):
+
+    steps_per_epoch = len(generator)
+    pbar = tf.keras.utils.Progbar(steps_per_epoch)
+
+    for step in steps_per_epoch:
         X_idx, y = generator.__getitem__(step)        
         
-        X_1 = encoder(X_title[X_idx[:,0]])
-        X_2 = encoder(X_title[X_idx[:,1]])        
+        train_idx, val_idx, _ , _ = train_test_split(np.arange(len(X_idx)), y)
 
-        loss_value = train_step(X_1, X_2, y)
-        cum_loss += loss_value
+        X_1, X_2 = encoder(X_title[X_idx[:,0][train_idx]]), encoder(X_title[X_idx[:,1][train_idx]])
+        X_val_1, X_val_2 = encoder(X_title[X_idx[:,0][val_idx]]), encoder(X_title[X_idx[:,1][val_idx]])
+        y_train, y_test = y[train_idx], y[val_idx]
 
-        if step % 200 == 0:
-            print("Loss: {} \n".format(loss_value), end="")
-            print("Cum Loss: {} \n".format(cum_loss), end="")
+        loss_value = train_step(X_1, X_2, y_train)
+        val_loss_value = valid_step(X_val_1, X_val_2,y_test)
+
+        pbar.update(step,values=[("log_loss",loss_value), ("val_loss", val_loss_value)])
 
         del X_1, X_2, X_idx
         gc.collect()
