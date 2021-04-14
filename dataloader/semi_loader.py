@@ -1,9 +1,12 @@
 import math
+import logging
 
 import numpy as np
 import tensorflow as tf
 
-logger = tf.compat.v2.get_logger()
+from modelling.dist import pairwise_dist
+
+logger = logging.getLogger("semi_loader")
 
 
 class RandomTextSemiLoader(object):
@@ -109,14 +112,36 @@ class RandomHardNegativeSemiLoader(object):
         logger.info(">> Searching for hard negatives...")
 
         scores = tf.matmul(X_pos, X_neg, transpose_b=True)
-        ranks = tf.argsort(scores, direction="DESCENDING")
+        top_val, top_indices = tf.math.top_k(scores,k=self.neg_size*2,)
 
-        # for q in range(len(self.idx2pool)):
-        #
-        #
-        #
-        # for idx in self.idx2pool:
-        #     self.mask[idx] = 1
+        avg_ndist = tf.Variable(0.0,trainable=False, dtype=tf.float64)
+        n_ndist = tf.Variable(0.0,trainable=False, dtype=tf.float64)
+
+        self.nidxs = []
+        for q in range(len(self.pidxs)):
+            qcluster = self.idx2cluster[q]
+
+            clusters = [qcluster]
+
+            r = 0
+            nidxs = []
+            while len(nidxs) < self.neg_size:
+                potential = self.idx2pool_neg[top_indices[q,r]]
+                if not self.idx2cluster[potential] in clusters:
+                    nidxs.append(potential)
+                    clusters.append(self.idx2cluster[potential])
+
+                    avg_ndist.assign_add(pairwise_dist(X_pos[q], X_neg[top_indices[q,r]]))
+                    n_ndist.assign_add(1)
+
+                r += 1
+
+            self.nidxs.append(nidxs)
+
+        logger.info("Average negative l2-distance: {:.2f}".format(tf.divide(avg_ndist,n_ndist).numpy()))
+
+        for idx in self.idx2pool:
+            self.mask[idx] = 1
 
     def __len__(self):
         return self.pool_size
