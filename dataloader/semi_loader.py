@@ -1,8 +1,10 @@
 import math
+
 import numpy as np
 import tensorflow as tf
 
 logger = tf.compat.v2.get_logger()
+
 
 class RandomTextSemiLoader(object):
     def __init__(self, X, qclusters, pool_size=1000, batch_size=32, neg_size=5, pos_size=1, shuffle=True):
@@ -28,7 +30,7 @@ class RandomTextSemiLoader(object):
     def __len__(self):
         return math.ceil(len(self.indexes) / self.batch_size)
 
-    def __getitem__(self, idx):
+    def get(self, idx):
         batch_x_idxs = self.indexes[idx * self.batch_size:(idx + 1) * self.batch_size]
         total_size = self.pos_size + self.neg_size
 
@@ -81,9 +83,9 @@ class RandomHardNegativeSemiLoader(object):
         self.cluster_bitmap = self.ohe.T
 
         self.idx2cluster = {i: self.qclusters[i] for i in self.indexes}
-        self.mask = np.ones(len(self.indexes),dtype=np.uint8)
+        self.mask = np.ones(len(self.indexes), dtype=np.uint8)
 
-    def create_epoch_tuple(self, encoder,embedding_model: tf.keras.models.Model):
+    def create_epoch_tuple(self, encoder, embedding_model: tf.keras.models.Model):
         logger.info(">> Creating tuples for an epoch -----")
         self.idx2pool = np.random.choice(self.indexes, self.pool_size)
         self.pidxs = []
@@ -99,11 +101,10 @@ class RandomHardNegativeSemiLoader(object):
             for t in pos_idxs:
                 self.pidxs.append(t)
 
-        self.idx2pool_neg = np.random.choice(np.where(self.mask)[0],size=self.neg_size)
+        self.idx2pool_neg = np.random.choice(np.where(self.mask)[0], size=self.neg_size)
 
         X_pos = embedding_model(encoder(self.X[self.pidxs]))
         X_neg = embedding_model(encoder(self.X[self.idx2pool_neg]))
-
 
         logger.info(">> Searching for hard negatives...")
 
