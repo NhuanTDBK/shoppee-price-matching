@@ -128,7 +128,7 @@ def valid_step(x1, x2, y):
     loss_value = loss_fn(y_true=y, y_pred=y_pred)
 
     del X_emb1, X_emb2
-    
+
     return loss_value
 
 
@@ -155,7 +155,7 @@ for epoch in range(params["EPOCHS"]):
         pbar.update(step, values=[("log_loss", loss_value), ("val_loss", val_loss_value)])
         
         cum_loss_train += loss_value
-        cum_loss_val +== val_loss_value
+        cum_loss_val += val_loss_value
 
         del X_1, X_2, X_idx
         gc.collect()
