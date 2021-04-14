@@ -19,7 +19,7 @@ from modelling.pooling import *
 params = {
     "N_CLASSES": 11014,
     "MAX_LEN": 70,
-    "MODEL_NAME": 'bert-base-multilingual-uncased',
+    "MODEL_NAME": 'microsoft/Multilingual-MiniLM-L12-H384',
     "EPOCHS": 5,
     "BATCH_SIZE": 16,
     "LAST_HIDDEN_STATES": 3,
@@ -31,11 +31,11 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("n")
 
-config = transformers.BertConfig.from_pretrained(params["MODEL_NAME"])
+config = transformers.XLMRobertaConfig.from_pretrained(params["MODEL_NAME"])
 config.output_hidden_states = True
-tokenizer = transformers.AutoTokenizer.from_pretrained(params["MODEL_NAME"])
+tokenizer = transformers.XLMRobertaTokenizer.from_pretrained(params["MODEL_NAME"])
 
-model_dir = os.path.join(params["DRIVE_PATH"], "saved", params["MODEL_NAME"])
+model_dir = os.path.join(params["DRIVE_PATH"], "saved",params["MODEL_NAME"])
 os.makedirs(model_dir, exist_ok=True)
 
 

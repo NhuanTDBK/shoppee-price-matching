@@ -19,7 +19,7 @@ from modelling.pooling import *
 params = {
     "N_CLASSES": 11014,
     "MAX_LEN": 70,
-    "MODEL_NAME": 'xlm-roberta-base',
+    "MODEL_NAME": 'jplu/tf-xlm-roberta-base',
     "EPOCHS": 5,
     "BATCH_SIZE": 16,
     "LAST_HIDDEN_STATES": 3,
@@ -35,7 +35,7 @@ config = transformers.XLMRobertaConfig.from_pretrained(params["MODEL_NAME"])
 config.output_hidden_states = True
 tokenizer = transformers.XLMRobertaTokenizer.from_pretrained(params["MODEL_NAME"])
 
-model_dir = os.path.join(params["DRIVE_PATH"], "saved", "pair-%s" % params["MODEL_NAME"])
+model_dir = os.path.join(params["DRIVE_PATH"], "saved",params["MODEL_NAME"])
 os.makedirs(model_dir, exist_ok=True)
 
 
