@@ -93,7 +93,7 @@ generator = RandomTextSemiLoader(df["title"].to_numpy(), df["label"].to_numpy(),
                                  batch_size=params["BATCH_SIZE"],
                                  shuffle=True)
 
-tb_log_dir = os.path.join("/content/shopee-price/logs")
+tb_log_dir = os.path.join("/content/drive/MyDrive/shopee-price/logs")
 model_dir = os.path.join("/content/drive/MyDrive/shopee-price/saved", "pair-%s" % params["MODEL_NAME"])
 
 os.makedirs(tb_log_dir, exist_ok=True)
@@ -108,15 +108,12 @@ val_summary_writer = tf.summary.create_file_writer(val_log_dir)
 
 
 @tf.function
-def train_step(x1, x2, y, step):
-    with tf.GradientTape() as tape, train_summary_writer.as_default():
+def train_step(x1, x2, y):
+    with tf.GradientTape() as tape:
         X_emb1, X_emb2 = model(x1), model(x2)
 
         y_pred = pairwise_dist(X_emb1, X_emb2)
         loss_value = loss_fn(y_true=y, y_pred=y_pred)
-
-        tf.summary.scalar("loss", loss_value, step)
-
         del X_emb1, X_emb2
     grads = tape.gradient(loss_value, model.trainable_weights)
     optimizer.apply_gradients(zip(grads, model.trainable_weights))
@@ -124,17 +121,14 @@ def train_step(x1, x2, y, step):
 
 
 @tf.function
-def valid_step(x1, x2, y, step):
+def valid_step(x1, x2, y):
     X_emb1, X_emb2 = model(x1), model(x2)
 
     y_pred = pairwise_dist(X_emb1, X_emb2)
     loss_value = loss_fn(y_true=y, y_pred=y_pred)
 
-    with val_summary_writer.as_default():
-        tf.summary.scalar("loss", loss_value, step)
-
-    del X_emb1, X_emb2, y
-
+    del X_emb1, X_emb2
+    
     return loss_value
 
 
@@ -144,6 +138,7 @@ for epoch in range(params["EPOCHS"]):
     steps_per_epoch = len(generator)
     pbar = tf.keras.utils.Progbar(steps_per_epoch)
 
+    cum_loss_train, cum_loss_val = 0.0, 0.0
     for step in range(steps_per_epoch):
         X_idx, y = generator.__getitem__(step)
 
@@ -154,13 +149,22 @@ for epoch in range(params["EPOCHS"]):
         X_val_1, X_val_2 = encoder(X_title[X_idx[:, 0][val_idx]]), encoder(X_title[X_idx[:, 1][val_idx]])
         y_train, y_test = y[train_idx], y[val_idx]
 
-        loss_value = train_step(X_1, X_2, y_train, step)
-        val_loss_value = valid_step(X_val_1, X_val_2, y_test, step)
+        loss_value = train_step(X_1, X_2, y_train)
+        val_loss_value = valid_step(X_val_1, X_val_2, y_test)
 
         pbar.update(step, values=[("log_loss", loss_value), ("val_loss", val_loss_value)])
+        
+        cum_loss_train += loss_value
+        cum_loss_val +== val_loss_value
 
         del X_1, X_2, X_idx
         gc.collect()
+    
+    with train_summary_writer.as_default():
+        tf.summary.scalar("loss", cum_loss_train/steps_per_epoch, epoch)
+
+    with val_summary_writer.as_default():
+        tf.summary.scalar("loss", cum_loss_val/steps_per_epoch, epoch)    
 
     generator.on_epoch_end()
 
