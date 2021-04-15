@@ -158,7 +158,7 @@ def main():
             X_idx, y = generator.get(step)
             X_1, X_2 = encoder(X_title[X_idx[:, 0]]), encoder(X_title[X_idx[:, 1]])
 
-            print(X_idx)
+            # print(X_idx)
             loss_value = train_step(X_1, X_2, y)
 
             pbar.update(step, values=[("log_loss", loss_value)])
