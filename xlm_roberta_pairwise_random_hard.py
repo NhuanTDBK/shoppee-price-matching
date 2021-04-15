@@ -20,7 +20,7 @@ params = {
     "N_CLASSES": 11014,
     "MAX_LEN": 70,
     "MODEL_NAME": 'jplu/tf-xlm-roberta-base',
-    "NEG_SIZE": 3,
+    "NEG_SIZE": 5,
     "POOL_SIZE": 20000,
     "EPOCHS": 32,
     "BATCH_SIZE": 5,
