@@ -105,8 +105,7 @@ def create_model():
     loss_fn = contrastive_loss
 
     model.compile(optimizer=optimizer, loss=loss_fn)
-
-    print(model.summary())
+    model.summary()
 
     return model, optimizer, loss_fn
 
@@ -131,6 +130,7 @@ def main():
             y_pred = pairwise_dist(X_emb1, X_emb2)
             loss_value = loss_fn(y_true=y, y_pred=y_pred)
             del X_emb1, X_emb2
+
         grads = tape.gradient(loss_value, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
         return loss_value
@@ -156,9 +156,9 @@ def main():
 
         for step in range(steps_per_epoch):
             X_idx, y = generator.get(step)
-
             X_1, X_2 = encoder(X_title[X_idx[:, 0]]), encoder(X_title[X_idx[:, 1]])
 
+            print(X_idx)
             loss_value = train_step(X_1, X_2, y)
 
             pbar.update(step, values=[("log_loss", loss_value)])
@@ -173,13 +173,12 @@ def main():
             # tf.summary.histogram("emb_sent_layer",data=model.output,step=epoch)
 
         checkpoint.save(file_prefix=checkpoint_prefix)
-        generator.on_epoch_end()
         model.save_weights(os.path.join(model_dir, "model"), save_format="h5", overwrite=True)
 
     train_summary_writer.flush()
     val_summary_writer.flush()
 
-    model.save_weights(os.path.join(model_dir, "model"), save_format="h5", overwrite=True)
+    # model.save_weights(os.path.join(model_dir, "model"), save_format="h5", overwrite=True)
 
 
 if __name__ == '__main__':

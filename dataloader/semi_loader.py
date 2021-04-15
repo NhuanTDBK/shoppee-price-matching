@@ -94,6 +94,7 @@ class RandomHardNegativeSemiLoader(object):
         logger.info(">> Creating tuples for an epoch -----")
         self.qidxs = np.random.choice(self.indexes, self.qsize)
         self.pidxs = []
+        self.nidxs = []
 
         for idx in self.qidxs:
             self.mask[idx] = 0
@@ -115,12 +116,12 @@ class RandomHardNegativeSemiLoader(object):
         logger.info(">> Searching for hard negatives...")
 
         scores = tf.matmul(X_pos, X_neg, transpose_b=True)
-        top_val, top_indices = tf.math.top_k(scores, k=self.neg_size * 2, )
+        top_val, top_indices = tf.math.top_k(scores, k=self.neg_size , )
 
         avg_ndist = tf.Variable(0.0, trainable=False, dtype=tf.float32)
         n_ndist = tf.Variable(0.0, trainable=False, dtype=tf.float32)
 
-        self.nidxs = []
+
         for q in range(len(self.pidxs)):
             qcluster = self.idx2cluster[q]
             clusters = [qcluster]
@@ -139,7 +140,7 @@ class RandomHardNegativeSemiLoader(object):
 
             self.nidxs.append(nidxs)
 
-        logger.info("Average negative l2-distance: {:.2f}".format(tf.divide(avg_ndist, n_ndist).numpy()))
+        logger.info("Average negative l2-distance: {:.6f}".format(tf.divide(avg_ndist, n_ndist).numpy()))
 
         for idx in self.qidxs:
             self.mask[idx] = 1
@@ -169,14 +170,9 @@ class RandomHardNegativeSemiLoader(object):
         batch_x_idxs = self.qidxs[idx * self.batch_size:(idx + 1) * self.batch_size]
         X = []
         y = []
-        for i in range(len(batch_x_idxs)):
+        for i in batch_x_idxs:
             X_i, y_i = self.__getitem__(i)
             X.extend(X_i)
             y.extend(y_i)
 
         return np.array(X,dtype=np.int), np.array(y,dtype=np.int)
-
-    def on_epoch_end(self):
-        # 'Updates indexes after each epoch'
-        if self.shuffle == True:
-            np.random.shuffle(self.indexes)
