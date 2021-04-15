@@ -24,7 +24,7 @@ params = {
     "POOL_SIZE": 20000,
     "EPOCHS": 32,
     "BATCH_SIZE": 5,
-    "QUERY_SIZE": 1000,
+    "QUERY_SIZE": 2000,
     "LAST_HIDDEN_STATES": 3,
     "DRIVE_PATH": "/content/drive/MyDrive/shopee-price"
 }
@@ -172,7 +172,7 @@ def main():
             tf.summary.scalar("loss", cum_loss_train / steps_per_epoch, epoch)
             # tf.summary.histogram("emb_sent_layer",data=model.output,step=epoch)
 
-        checkpoint.save(file_prefix=checkpoint_prefix)
+        # checkpoint.save(file_prefix=checkpoint_prefix)
         model.save_weights(os.path.join(model_dir, "model"), save_format="h5", overwrite=True)
 
     train_summary_writer.flush()
