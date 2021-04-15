@@ -67,6 +67,7 @@ class RandomTextSemiLoader(object):
 
 
 class RandomHardNegativeSemiLoader(object):
+
     def __init__(self, X, qclusters, pool_size=100, batch_size=5, neg_size=5, pos_size=1, qsize=10, shuffle=True):
         """
 
@@ -110,6 +111,9 @@ class RandomHardNegativeSemiLoader(object):
         X_pos = embedding_model.predict(encoder(self.X[self.pidxs]),batch_size=128,verbose=1)
         X_neg = embedding_model.predict(encoder(self.X[self.idx2pool_neg]),batch_size=64,verbose=1)
 
+        logger.info(">> %s %s"%(X_pos.shape, X_neg.shape))
+        logger.info(">> Searching for hard negatives...")
+
         scores = tf.matmul(X_pos, X_neg, transpose_b=True)
         top_val, top_indices = tf.math.top_k(scores, k=self.neg_size * 2, )
 
@@ -122,7 +126,7 @@ class RandomHardNegativeSemiLoader(object):
             clusters = [qcluster]
             r = 0
             nidxs = []
-            while len(nidxs) < self.neg_size:
+            while len(nidxs) < self.neg_size and r < len(top_indices[q]):
                 potential = self.idx2pool_neg[top_indices[q, r]]
 
                 if not self.idx2cluster[potential] in clusters:
