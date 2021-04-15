@@ -145,7 +145,7 @@ class RandomHardNegativeSemiLoader(object):
             self.mask[idx] = 1
 
     def __len__(self):
-        return self.qsize
+        return math.ceil(self.qsize / self.batch_size)
 
     def __getitem__(self, idx):
         # query
