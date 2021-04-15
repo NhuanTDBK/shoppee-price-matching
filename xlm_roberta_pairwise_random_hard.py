@@ -174,6 +174,7 @@ def main():
 
         checkpoint.save(file_prefix=checkpoint_prefix)
         generator.on_epoch_end()
+        model.save_weights(os.path.join(model_dir, "model"), save_format="h5", overwrite=True)
 
     train_summary_writer.flush()
     val_summary_writer.flush()
