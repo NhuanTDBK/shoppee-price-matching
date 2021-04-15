@@ -107,8 +107,8 @@ class RandomHardNegativeSemiLoader(object):
 
         self.idx2pool_neg = np.random.choice(np.where(self.mask)[0], size=self.pool_size)
 
-        X_pos = embedding_model.predict(encoder(self.X[self.pidxs]),batch_size=128)
-        X_neg = embedding_model.predict(encoder(self.X[self.idx2pool_neg]),batch_size=64)
+        X_pos = embedding_model.predict(encoder(self.X[self.pidxs]),batch_size=128,verbose=1)
+        X_neg = embedding_model.predict(encoder(self.X[self.idx2pool_neg]),batch_size=64,verbose=1)
 
         scores = tf.matmul(X_pos, X_neg, transpose_b=True)
         top_val, top_indices = tf.math.top_k(scores, k=self.neg_size * 2, )
@@ -159,16 +159,16 @@ class RandomHardNegativeSemiLoader(object):
         for i in range(len(neg_idxs)):
             X.append([query_idx, neg_idxs[i]])
 
-        return np.array(X,dtype=np.int), np.array(y,dtype=np.int)
+        return X, y
 
     def get(self, idx):
         batch_x_idxs = self.qidxs[idx * self.batch_size:(idx + 1) * self.batch_size]
         X = []
         y = []
         for i in range(len(batch_x_idxs)):
-            X_i, y_i = (self.__getitem__(i))
-            X.append(X_i)
-            y.append(y_i)
+            X_i, y_i = self.__getitem__(i)
+            X.extend(X_i)
+            y.extend(y_i)
 
         return np.array(X,dtype=np.int), np.array(y,dtype=np.int)
 
