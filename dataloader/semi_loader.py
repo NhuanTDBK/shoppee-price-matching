@@ -161,6 +161,17 @@ class RandomHardNegativeSemiLoader(object):
 
         logger.info("Average negative l2-distance: {:.6f}".format(tf.divide(avg_ndist, n_ndist).numpy()))
 
+        logger.info("Prepare on the fly batch")
+
+        self._X, self._y = [], []
+        for idx in range(int(math.ceil(self.qsize / self.batch_size))):
+            x, y = self.get(idx)
+            self._X.append(x)
+            self._y.append(y)
+
+        self._X = np.array(self._X)
+        self._y = np.array(self._y)
+
     def __len__(self):
         return math.ceil(self.qsize / self.batch_size)
 
@@ -184,11 +195,12 @@ class RandomHardNegativeSemiLoader(object):
 
     def get(self, idx):
         batch_x_idxs = self.indexes[idx * self.batch_size:(idx + 1) * self.batch_size]
-        X = []
-        y = []
-        for i in batch_x_idxs:
-            X_i, y_i = self.__getitem__(i)
-            X.extend(X_i)
-            y.extend(y_i)
-
-        return np.array(X, dtype=np.int), np.array(y, dtype=np.int)
+        return np.array(self._X[batch_x_idxs], self._y[batch_x_idxs])
+        # X = []
+        # y = []
+        # for i in batch_x_idxs:
+        #     X_i, y_i = self.__getitem__(i)
+        #     X.extend(X_i)
+        #     y.extend(y_i)
+        #
+        # return np.array(X, dtype=np.int), np.array(y, dtype=np.int)
