@@ -21,7 +21,7 @@ params = {
     "MAX_LEN": 70,
     "MODEL_NAME": 'jplu/tf-xlm-roberta-base',
     "NEG_SIZE": 3,
-    "POOL_SIZE": 1000,
+    "POOL_SIZE": 20000,
     "EPOCHS": 32,
     "BATCH_SIZE": 5,
     "QUERY_SIZE": 1000,
@@ -152,7 +152,7 @@ def main():
         pbar = tf.keras.utils.Progbar(steps_per_epoch)
         cum_loss_train = 0.0
 
-        avg_dist = generator.create_epoch_tuple(encoder,model)
+        generator.create_epoch_tuple(encoder,model)
 
         for step in range(steps_per_epoch):
             X_idx, y = generator.get(step)
@@ -170,7 +170,7 @@ def main():
 
         with train_summary_writer.as_default():
             tf.summary.scalar("loss", cum_loss_train / steps_per_epoch, epoch)
-            tf.summary.histogram("emb_sent_layer",data=model.output)
+            # tf.summary.histogram("emb_sent_layer",data=model.output,step=epoch)
 
         checkpoint.save(file_prefix=checkpoint_prefix)
         generator.on_epoch_end()
