@@ -67,7 +67,7 @@ class RandomTextSemiLoader(object):
 
 
 class RandomHardNegativeSemiLoader(object):
-    def __init__(self, X, qclusters, pool_size=100, batch_size=32, neg_size=5, pos_size=1, qsize=10, shuffle=True):
+    def __init__(self, X, qclusters, pool_size=100, batch_size=5, neg_size=5, pos_size=1, qsize=10, shuffle=True):
         """
 
         """
@@ -107,8 +107,8 @@ class RandomHardNegativeSemiLoader(object):
 
         self.idx2pool_neg = np.random.choice(np.where(self.mask)[0], size=self.pool_size)
 
-        X_pos = embedding_model(encoder(self.X[self.pidxs]))
-        X_neg = embedding_model(encoder(self.X[self.idx2pool_neg]))
+        X_pos = embedding_model.predict(encoder(self.X[self.pidxs]),batch_size=128)
+        X_neg = embedding_model.predict(encoder(self.X[self.idx2pool_neg]),batch_size=64)
 
         scores = tf.matmul(X_pos, X_neg, transpose_b=True)
         top_val, top_indices = tf.math.top_k(scores, k=self.neg_size * 2, )
@@ -143,8 +143,7 @@ class RandomHardNegativeSemiLoader(object):
     def __len__(self):
         return self.qsize
 
-    def get(self, idx):
-        output = []
+    def __getitem__(self, idx):
         # query
         query_idx = self.qidxs[idx]
         # positive
@@ -159,6 +158,17 @@ class RandomHardNegativeSemiLoader(object):
 
         for i in range(len(neg_idxs)):
             X.append([query_idx, neg_idxs[i]])
+
+        return np.array(X,dtype=np.int), np.array(y,dtype=np.int)
+
+    def get(self, idx):
+        batch_x_idxs = self.qidxs[idx * self.batch_size:(idx + 1) * self.batch_size]
+        X = []
+        y = []
+        for i in range(len(batch_x_idxs)):
+            X_i, y_i = (self.__getitem__(i))
+            X.append(X_i)
+            y.append(y_i)
 
         return np.array(X,dtype=np.int), np.array(y,dtype=np.int)
 
