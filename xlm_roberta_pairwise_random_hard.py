@@ -10,7 +10,7 @@ import transformers
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
-from dataloader.semi_loader import RandomTextSemiLoader
+from dataloader.semi_loader import RandomHardNegativeSemiLoader
 from features.pool import BertLastHiddenState
 from modelling.dist import pairwise_dist
 from modelling.loss import contrastive_loss
@@ -19,9 +19,12 @@ from modelling.pooling import *
 params = {
     "N_CLASSES": 11014,
     "MAX_LEN": 70,
-    "MODEL_NAME": 'bert-base-multilingual-uncased',
-    "EPOCHS": 5,
-    "BATCH_SIZE": 16,
+    "MODEL_NAME": 'jplu/tf-xlm-roberta-base',
+    "NEG_SIZE": 3,
+    "POOL_SIZE": 1000,
+    "EPOCHS": 32,
+    "BATCH_SIZE": 5,
+    "QUERY_SIZE": 2000,
     "LAST_HIDDEN_STATES": 3,
     "DRIVE_PATH": "/content/drive/MyDrive/shopee-price"
 }
@@ -31,9 +34,9 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("n")
 
-config = transformers.BertConfig.from_pretrained(params["MODEL_NAME"])
+config = transformers.XLMRobertaConfig.from_pretrained(params["MODEL_NAME"])
 config.output_hidden_states = True
-tokenizer = transformers.AutoTokenizer.from_pretrained(params["MODEL_NAME"])
+tokenizer = transformers.XLMRobertaTokenizer.from_pretrained(params["MODEL_NAME"])
 
 model_dir = os.path.join(params["DRIVE_PATH"], "saved", params["MODEL_NAME"])
 os.makedirs(model_dir, exist_ok=True)
@@ -112,10 +115,9 @@ def main():
     df = pd.read_csv("train.csv")
     df["label"] = LabelEncoder().fit_transform(df["label_group"].tolist())
     X_title = df["title"].to_numpy()
-    generator = RandomTextSemiLoader(df["title"].to_numpy(),
-                                     df["label"].to_numpy(),
-                                     batch_size=params["BATCH_SIZE"],
-                                     shuffle=True)
+    generator = RandomHardNegativeSemiLoader(X_title, df["label"].to_numpy(), qsize=params["QUERY_SIZE"],
+                                             pool_size=params["POOL_SIZE"], neg_size=params["NEG_SIZE"],
+                                             batch_size=params["BATCH_SIZE"], shuffle=True)
 
     model, optimizer, loss_fn = create_model()
     checkpoint, checkpoint_prefix = create_checkpoint(model, optimizer)
@@ -144,39 +146,31 @@ def main():
 
         return loss_value
 
+    steps_per_epoch = len(generator)
     for epoch in range(params["EPOCHS"]):
         print("Start epoch {}/{} \n".format((epoch + 1), params["EPOCHS"]))
-
-        steps_per_epoch = len(generator)
         pbar = tf.keras.utils.Progbar(steps_per_epoch)
+        cum_loss_train = 0.0
 
-        cum_loss_train, cum_loss_val = 0.0, 0.0
+        avg_dist = generator.create_epoch_tuple(encoder,model)
+
         for step in range(steps_per_epoch):
             X_idx, y = generator.get(step)
 
-            train_idx, val_idx, _, _ = train_test_split(np.arange(len(X_idx)), y, test_size=0.2, random_state=4111,
-                                                        shuffle=True)
+            X_1, X_2 = encoder(X_title[X_idx[:, 0]]), encoder(X_title[X_idx[:, 1]])
 
-            X_1, X_2 = encoder(X_title[X_idx[:, 0][train_idx]]), encoder(X_title[X_idx[:, 1][train_idx]])
-            X_val_1, X_val_2 = encoder(X_title[X_idx[:, 0][val_idx]]), encoder(X_title[X_idx[:, 1][val_idx]])
-            y_train, y_test = y[train_idx], y[val_idx]
+            loss_value = train_step(X_1, X_2, y)
 
-            loss_value = train_step(X_1, X_2, y_train)
-            val_loss_value = valid_step(X_val_1, X_val_2, y_test)
-
-            pbar.update(step, values=[("log_loss", loss_value), ("val_loss", val_loss_value)])
+            pbar.update(step, values=[("log_loss", loss_value)])
 
             cum_loss_train += loss_value
-            cum_loss_val += val_loss_value
 
             del X_1, X_2, X_idx
             gc.collect()
 
         with train_summary_writer.as_default():
             tf.summary.scalar("loss", cum_loss_train / steps_per_epoch, epoch)
-
-        with val_summary_writer.as_default():
-            tf.summary.scalar("loss", cum_loss_val / steps_per_epoch, epoch)
+            tf.summary.histogram("emb_sent_layer",data=model.output)
 
         checkpoint.save(file_prefix=checkpoint_prefix)
         generator.on_epoch_end()
@@ -184,7 +178,7 @@ def main():
     train_summary_writer.flush()
     val_summary_writer.flush()
 
-    model.save_weights(os.path.join(model_dir,"model"),save_format="h5",overwrite=True)
+    model.save_weights(os.path.join(model_dir, "model"), save_format="h5", overwrite=True)
 
 
 if __name__ == '__main__':

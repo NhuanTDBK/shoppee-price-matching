@@ -184,7 +184,7 @@ def main():
     train_summary_writer.flush()
     val_summary_writer.flush()
 
-    model.save(model_dir)
+    model.save_weights(os.path.join(model_dir,"model"),save_format="h5",overwrite=True)
 
 
 if __name__ == '__main__':
