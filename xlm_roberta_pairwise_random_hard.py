@@ -24,7 +24,7 @@ params = {
     "POOL_SIZE": 1000,
     "EPOCHS": 32,
     "BATCH_SIZE": 5,
-    "QUERY_SIZE": 2000,
+    "QUERY_SIZE": 1000,
     "LAST_HIDDEN_STATES": 3,
     "DRIVE_PATH": "/content/drive/MyDrive/shopee-price"
 }

@@ -160,7 +160,7 @@ class RandomHardNegativeSemiLoader(object):
         for i in range(len(neg_idxs)):
             X.append([query_idx, neg_idxs[i]])
 
-        return X, y
+        return np.array(X,dtype=np.int), np.array(y,dtype=np.int)
 
     def on_epoch_end(self):
         # 'Updates indexes after each epoch'
