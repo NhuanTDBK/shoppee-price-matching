@@ -93,7 +93,7 @@ class RandomHardNegativeSemiLoader(object):
     def create_epoch_tuple(self, encoder, embedding_model: tf.keras.models.Model):
         logger.info(">> Creating tuples for an epoch -----")
         self.qidxs = np.random.choice(self.indexes, self.qsize)
-        self.mask = np.ones(len(self.indexes), dtype=np.uint8)
+        self.mask = np.ones(len(self.qclusters), dtype=np.uint8)
 
         self.indexes = np.arange(len(self.qidxs))
 
