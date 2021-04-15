@@ -93,6 +93,8 @@ class RandomHardNegativeSemiLoader(object):
     def create_epoch_tuple(self, encoder, embedding_model: tf.keras.models.Model):
         logger.info(">> Creating tuples for an epoch -----")
         self.qidxs = np.random.choice(self.indexes, self.qsize)
+        self.mask = np.ones(len(self.indexes), dtype=np.uint8)
+
         self.indexes = np.arange(len(self.qidxs))
 
         self.pidxs = []
@@ -103,26 +105,41 @@ class RandomHardNegativeSemiLoader(object):
 
             cluster_idx = self.idx2cluster[idx]
             self.cluster_bitmap[cluster_idx][idx] = 0
-            pos_idxs = np.random.choice(np.where(self.cluster_bitmap[cluster_idx])[0], size=self.pos_size)
+
+            all_pos_idxs = np.where(self.cluster_bitmap[cluster_idx])[0]
+            pos_idxs = np.random.choice(all_pos_idxs, size=self.pos_size)
+
             self.cluster_bitmap[cluster_idx][idx] = 1
 
             for t in pos_idxs:
                 self.pidxs.append(t)
 
-        self.idx2pool_neg = np.random.choice(np.where(self.mask)[0], size=self.pool_size)
+            for t in all_pos_idxs:
+                self.mask[t] = 0
 
-        X_pos = embedding_model.predict(encoder(self.X[self.pidxs]),batch_size=128,verbose=1)
-        X_neg = embedding_model.predict(encoder(self.X[self.idx2pool_neg]),batch_size=64,verbose=1)
+        pool_idxs = np.where(self.mask)[0]
+        llen_pool_idxs = len(pool_idxs)
 
-        logger.info(">> %s %s"%(X_pos.shape, X_neg.shape))
+        logger.info("Put positive masks: %s", len(self.mask) - llen_pool_idxs)
+
+        if llen_pool_idxs >= self.pool_size:
+            llen_pool_idxs = self.pool_size
+        else:
+            logger.info("Pool size are limited to %s", llen_pool_idxs)
+
+        self.idx2pool_neg = np.random.choice(np.where(self.mask)[0], size=llen_pool_idxs)
+
+        X_pos = embedding_model.predict(encoder(self.X[self.pidxs]), batch_size=128, verbose=1)
+        X_neg = embedding_model.predict(encoder(self.X[self.idx2pool_neg]), batch_size=64, verbose=1)
+
+        logger.info(">> %s %s" % (X_pos.shape, X_neg.shape))
         logger.info(">> Searching for hard negatives...")
 
         scores = tf.matmul(X_pos, X_neg, transpose_b=True)
-        top_val, top_indices = tf.math.top_k(scores, k=self.neg_size , )
+        top_val, top_indices = tf.math.top_k(scores, k=self.neg_size, )
 
         avg_ndist = tf.Variable(0.0, trainable=False, dtype=tf.float32)
         n_ndist = tf.Variable(0.0, trainable=False, dtype=tf.float32)
-
 
         for q in range(len(self.pidxs)):
             qcluster = self.idx2cluster[q]
@@ -143,9 +160,6 @@ class RandomHardNegativeSemiLoader(object):
             self.nidxs.append(nidxs)
 
         logger.info("Average negative l2-distance: {:.6f}".format(tf.divide(avg_ndist, n_ndist).numpy()))
-
-        for idx in self.qidxs:
-            self.mask[idx] = 1
 
     def __len__(self):
         return math.ceil(self.qsize / self.batch_size)
@@ -177,4 +191,4 @@ class RandomHardNegativeSemiLoader(object):
             X.extend(X_i)
             y.extend(y_i)
 
-        return np.array(X,dtype=np.int), np.array(y,dtype=np.int)
+        return np.array(X, dtype=np.int), np.array(y, dtype=np.int)

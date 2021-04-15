@@ -15,6 +15,7 @@ from features.pool import BertLastHiddenState
 from modelling.dist import pairwise_dist
 from modelling.loss import contrastive_loss
 from modelling.pooling import *
+from text.extractor import convert_unicode
 
 params = {
     "N_CLASSES": 11014,
@@ -22,7 +23,7 @@ params = {
     "MODEL_NAME": 'jplu/tf-xlm-roberta-base',
     "NEG_SIZE": 5,
     "POOL_SIZE": 20000,
-    "EPOCHS": 32,
+    "EPOCHS": 15,
     "BATCH_SIZE": 5,
     "QUERY_SIZE": 2000,
     "LAST_HIDDEN_STATES": 3,
@@ -41,6 +42,14 @@ tokenizer = transformers.XLMRobertaTokenizer.from_pretrained(params["MODEL_NAME"
 model_dir = os.path.join(params["DRIVE_PATH"], "saved", params["MODEL_NAME"])
 os.makedirs(model_dir, exist_ok=True)
 
+
+def text_pipeline(titles: Union[str]):
+    ct = [None] * len(titles)
+
+    for i in range(len(titles)):
+        ct[i] = convert_unicode(titles[i].lower())
+
+    return ct
 
 def encoder(titles: Union[str]):
     ct = len(titles)
@@ -112,8 +121,11 @@ def create_model():
 
 def main():
     df = pd.read_csv("train.csv")
+
     df["label"] = LabelEncoder().fit_transform(df["label_group"].tolist())
+    df["title"] = text_pipeline(df["title"].tolist())
     X_title = df["title"].to_numpy()
+
     generator = RandomHardNegativeSemiLoader(X_title, df["label"].to_numpy(), qsize=params["QUERY_SIZE"],
                                              pool_size=params["POOL_SIZE"], neg_size=params["NEG_SIZE"],
                                              batch_size=params["BATCH_SIZE"], shuffle=True)
@@ -148,7 +160,7 @@ def main():
 
     steps_per_epoch = len(generator)
     for epoch in range(params["EPOCHS"]):
-        print("Start epoch {}/{} \n".format((epoch + 1), params["EPOCHS"]))
+        print("\n Start epoch {}/{}".format((epoch + 1), params["EPOCHS"]))
         pbar = tf.keras.utils.Progbar(steps_per_epoch)
         cum_loss_train = 0.0
 
