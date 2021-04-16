@@ -115,10 +115,7 @@ def create_model():
 
     x1 = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
     x1 = BertLastHiddenState(multi_sample_dropout=True)(x1)
-    x1 = TextProductMatch(params["N_CLASSES"],
-                          params["POOLING"],
-                          metric=params["METRIC"],
-                          use_fc=True)([x1, labels_onehot])
+    x1 = TextProductMatch(params["N_CLASSES"],metric=params["METRIC"])([x1, labels_onehot])
 
     model = tf.keras.Model(inputs=[[ids, att, tok], labels_onehot], outputs=[x1])
 

@@ -36,7 +36,6 @@ class TextProductMatch(layers.Layer):
                  metric="arcface",
                  s=24.0,
                  margin=0.3,
-                 fc_dim=512,
                  ls_eps=0.0,
                  theta_zero=0.85,
                  is_softmax=False,
