@@ -1,6 +1,8 @@
 import logging
 import math
 
+import scipy
+
 import numpy as np
 import tensorflow as tf
 
@@ -192,3 +194,132 @@ class RandomHardNegativeSemiLoader(object):
             y.extend(y_i)
 
         return np.array(X, dtype=np.int), np.array(y, dtype=np.int)
+
+
+class RandomSemiHardNegativeLoader(object):
+
+    def __init__(self, X, qclusters, pool_size=100, batch_size=5, neg_size=5, pos_size=1, qsize=10, shuffle=True, threshold = 0.8):
+        """
+
+        """
+        self.X = X
+        self.qclusters = np.array(qclusters)
+        self.shuffle = shuffle
+        self.pool_size = min(pool_size, len(X))
+        self.neg_size = neg_size
+        self.pos_size = pos_size
+        self.qsize = qsize
+        self.batch_size = batch_size
+        self.indexes = np.arange(len(self.qclusters))
+        self.threshold = threshold
+
+        self.nclusters = len(np.unique(self.qclusters))
+
+        self.ohe = tf.keras.utils.to_categorical(self.qclusters, num_classes=self.nclusters, dtype="int")
+
+        self.ohe_sparse = scipy.sparse.csr_matrix(self.ohe)
+
+        # Ignore same position
+
+        self.item2item = self.ohe_sparse.dot(self.ohe_sparse.T)
+
+        self.cluster_bitmap = self.ohe.T
+
+        self.idx2cluster = {i: self.qclusters[i] for i in self.indexes}
+        self.mask = np.ones(len(self.indexes), dtype=np.uint8)
+
+    def create_epoch_tuple(self, encoder, embedding_model: tf.keras.models.Model):
+        logger.info(">> Creating tuples for an epoch -----")
+
+        self.mask = np.ones(len(self.qclusters), dtype=np.uint8)
+        self.qidxs = np.zeros(self.qsize)
+        self.indexes = np.arange(len(self.qidxs))
+
+        # Select positive item and mask all related ones
+        for i in range(self.qsize):
+            idx = np.random.choice(np.where(self.mask))[0]
+            self.qidxs[i] = idx
+
+            _, y_pos_idxs = self.item2item[idx].nonzero()
+            for t in y_pos_idxs:
+                self.mask[t] = 0
+
+
+
+        X_emb = embedding_model.predict(encoder(self.X),batch_size=128,verbose=1)
+        X_dist = np.dot(X_emb, X_emb.T)
+
+        del X_emb
+
+        mask_pos = self.item2item[self.qidxs].toarray().astype(np.bool)
+        mask_neg = ~mask_pos
+
+        X_emd_query = X_dist[self.qidxs]
+        X_dist_pos = np.multiply(X_emd_query, mask_pos)
+        X_dist_neg = np.multiply(X_emd_query, mask_neg)
+
+        X_dist_neg = np.ma.masked_array(X_dist_neg, mask=X_dist_neg==0)
+
+
+        logger.info(">> Searching for hard negatives...")
+
+        avg_ndist = tf.Variable(0.0, trainable=False, dtype=tf.float32)
+        n_ndist = tf.Variable(0.0, trainable=False, dtype=tf.float32)
+
+        # Select hardest positive, if it's similar with model => skip
+        max_dist_idxs, max_dists = np.argmax(X_dist_pos,axis=1), np.max(X_dist_pos,axis=1)
+        min_dist_idxs, min_dists = np.argmin(X_dist_neg,axis=1), np.min(X_dist_neg,axis=1)
+
+        self.pidxs = []
+        self.nidxs = []
+
+        self.pos_pair = []
+        self.neg_pair = []
+
+        for i in range(len(max_dist_idxs)):
+            if max_dist_idxs[i] >= self.threshold:
+                logger.info("Skip this item")
+                continue
+
+            self.pos_pair.append([i, max_dist_idxs[i]])
+
+        for i in range(len(min_dist_idxs)):
+            self.neg_pair.append([i, min_dist_idxs[i]])
+
+        # logger.info("Average negative l2-distance: {:.6f}".format(tf.divide(avg_ndist, n_ndist).numpy()))
+        logger.info("Average negative l2-distance: {:.6f}".format(min_dists.mean()))
+        logger.info("Average positive l2-distance: {:.6f}".format(max_dists.mean()))
+
+    def __len__(self):
+        return math.ceil(self.qsize / self.batch_size)
+
+    def __getitem__(self, idx):
+        # query
+        query_idx = self.qidxs[idx]
+        # positive
+        pos_idx = self.pidxs[idx]
+        # negative
+        neg_idxs = self.nidxs[idx]
+
+        X = []
+        y = [1] + [0] * len(neg_idxs)
+
+        X.append([query_idx, pos_idx])
+
+        for i in range(len(neg_idxs)):
+            X.append([query_idx, neg_idxs[i]])
+
+        return X, y
+
+    def get(self, idx):
+        batch_x_idxs = self.indexes[idx * self.batch_size:(idx + 1) * self.batch_size]
+        X = []
+        y = []
+        for i in batch_x_idxs:
+            X_i, y_i = self.__getitem__(i)
+            X.extend(X_i)
+            y.extend(y_i)
+
+        return np.array(X, dtype=np.int), np.array(y, dtype=np.int)
+
+def compute_fn(X, fn):

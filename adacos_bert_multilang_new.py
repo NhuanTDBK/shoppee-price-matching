@@ -20,7 +20,7 @@ params = {
     "POOLING": "global_avg_1d",
     "EPOCHS": 5,
     "BATCH_SIZE": 32,
-    "METRIC": "circle_cl",
+    "METRIC": "adacos",
     "LAST_HIDDEN_STATES": 3,
     "DRIVE_PATH": "/content/drive/MyDrive/shopee-price"
 }
