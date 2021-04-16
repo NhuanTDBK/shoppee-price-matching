@@ -77,6 +77,9 @@ class TextProductMatch(layers.Layer):
             x = self.extract_features_layer(x)
 
         x = self.metric_layer([x,y])
+
+        x = tf.math.l2_normalize(x, axis=1)
+
         x = layers.Softmax(dtype="float64")(x)
 
         return x
