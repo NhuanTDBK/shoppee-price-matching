@@ -76,8 +76,6 @@ class TextProductMatch(layers.Layer):
         # x = self.pooling_layer()(x)
         # if self.use_fc:
         #     x = self.extract_features_layer(x)
-        x = BertLastHiddenState(multi_sample_dropout=True)(x)
-
         x = self.metric_layer([x,y])
 
         x = tf.math.l2_normalize(x, axis=1)

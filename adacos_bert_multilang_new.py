@@ -113,8 +113,8 @@ def create_model():
 
     labels_onehot = tf.keras.layers.Input(shape=(params["N_CLASSES"]), dtype=tf.int32)
 
-    x = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
-    x1 = BertLastHiddenState(multi_sample_dropout=True)(x)
+    x1 = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
+    x = BertLastHiddenState(multi_sample_dropout=True)(x1)
     x1 = TextProductMatch(params["N_CLASSES"],
                           params["POOLING"],
                           metric=params["METRIC"],
