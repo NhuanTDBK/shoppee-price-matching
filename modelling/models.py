@@ -4,6 +4,7 @@ from tensorflow.keras import layers, regularizers
 from modelling.metrics import ArcFace, AdaCos, CircleLoss, CircleLossCL
 
 from modelling.pooling import *
+from features.pool import BertLastHiddenState
 
 metric_layer_dict = {
     "arcface": ArcFace,
@@ -72,9 +73,10 @@ class TextProductMatch(layers.Layer):
     def call(self, inputs, training=None, mask=None):
         x, y = inputs
 
-        x = self.pooling_layer()(x)
-        if self.use_fc:
-            x = self.extract_features_layer(x)
+        # x = self.pooling_layer()(x)
+        # if self.use_fc:
+        #     x = self.extract_features_layer(x)
+        x = BertLastHiddenState(multi_sample_dropout=True)(x)
 
         x = self.metric_layer([x,y])
 
