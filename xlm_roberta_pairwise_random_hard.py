@@ -1,3 +1,4 @@
+import argparse
 import datetime
 import gc
 import logging
@@ -7,39 +8,44 @@ from typing import Union
 import numpy as np
 import pandas as pd
 import transformers
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
-from dataloader.semi_loader import RandomHardNegativeSemiLoader
-from features.pool import BertLastHiddenState
+from dataloader.semi_loader import RandomSemiHardNegativeLoader
+from features.pool import BertLastHiddenState, PoolingStrategy
 from modelling.dist import pairwise_dist
 from modelling.loss import contrastive_loss
 from modelling.pooling import *
 from text.extractor import convert_unicode
 
-params = {
-    "N_CLASSES": 11014,
-    "MAX_LEN": 70,
-    "MODEL_NAME": 'jplu/tf-xlm-roberta-base',
-    "NEG_SIZE": 5,
-    "POOL_SIZE": 20000,
-    "EPOCHS": 15,
-    "BATCH_SIZE": 5,
-    "QUERY_SIZE": 2000,
-    "LAST_HIDDEN_STATES": 3,
-    "DRIVE_PATH": "/content/drive/MyDrive/shopee-price"
-}
+parser = argparse.ArgumentParser()
+parser.add_argument("--max_len", type=int, default=70)
+parser.add_argument("--model_name", type=str, default='jplu/tf-xlm-roberta-base')
+parser.add_argument("--neg_size", type=int, default=5)
+parser.add_argument("--pool_size", type=int, default=20000)
+parser.add_argument("--epoch", type=int, default=2)
+parser.add_argument("--batch_size", type=int, default=64)
+parser.add_argument("--query_size", type=int, default=1000)
+parser.add_argument("--margin", type=float, default=0.3)
+parser.add_argument("--pool", type=str, default=PoolingStrategy.REDUCE_MEAN_MAX)
+parser.add_argument("--multi_dropout", type=bool, default=True)
+parser.add_argument("--last_hidden_states", type=int, default=3)
+parser.add_argument("--loss_agg", type=int, default=1)
+parser.add_argument("--threshold", type=float, default=0.8)
+
+args = parser.parse_args()
+params = vars(args)
 
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("n")
 
-config = transformers.XLMRobertaConfig.from_pretrained(params["MODEL_NAME"])
+config = transformers.XLMRobertaConfig.from_pretrained(params["model_name"])
 config.output_hidden_states = True
-tokenizer = transformers.XLMRobertaTokenizer.from_pretrained(params["MODEL_NAME"])
+tokenizer = transformers.XLMRobertaTokenizer.from_pretrained(params["model_name"])
 
-model_dir = os.path.join(params["DRIVE_PATH"], "saved", params["MODEL_NAME"])
+drive_path = "/content/drive/MyDrive/shopee-price"
+model_dir = os.path.join(drive_path, "saved", params["model_name"])
 os.makedirs(model_dir, exist_ok=True)
 
 
@@ -51,17 +57,18 @@ def text_pipeline(titles: Union[str]):
 
     return ct
 
+
 def encoder(titles: Union[str]):
     ct = len(titles)
 
-    input_ids = np.ones((ct, params["MAX_LEN"]), dtype='int32')
-    att_masks = np.zeros((ct, params["MAX_LEN"]), dtype='int32')
-    token_type_ids = np.zeros((ct, params["MAX_LEN"]), dtype='int32')
+    input_ids = np.ones((ct, params["max_len"]), dtype='int32')
+    att_masks = np.zeros((ct, params["max_len"]), dtype='int32')
+    token_type_ids = np.zeros((ct, params["max_len"]), dtype='int32')
 
     for i in range(len(titles)):
         enc = tokenizer.encode_plus(titles[i],
                                     padding="max_length",
-                                    max_length=params["MAX_LEN"],
+                                    max_length=params["max_len"],
                                     truncation=True,
                                     add_special_tokens=True,
                                     return_tensors='tf',
@@ -90,7 +97,7 @@ def create_tf_summary_writer():
 
 
 def create_checkpoint(model, optimizer):
-    checkpoint_prefix = os.path.join(params["DRIVE_PATH"], "tmp/training_checkpoints", params["MODEL_NAME"], "ckpt")
+    checkpoint_prefix = os.path.join(params["DRIVE_PATH"], "tmp/training_checkpoints", params["model_name"], "ckpt")
 
     # Create a Checkpoint that will manage two objects with trackable state,
     # one we name "optimizer" and the other we name "model".
@@ -99,13 +106,13 @@ def create_checkpoint(model, optimizer):
 
 
 def create_model():
-    word_model = transformers.TFAutoModel.from_pretrained(params["MODEL_NAME"], config=config)
+    word_model = transformers.TFAutoModel.from_pretrained(params["model_name"], config=config)
 
-    ids = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
-    att = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
-    tok = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
+    ids = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
+    att = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
+    tok = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
     x1 = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
-    embedding = BertLastHiddenState(multi_sample_dropout=True)(x1)
+    embedding = BertLastHiddenState(multi_sample_dropout=params["multi_dropout"])(x1)
     embedding_norm = tf.math.l2_normalize(embedding, axis=1)
 
     model = tf.keras.models.Model(inputs=[ids, att, tok], outputs=[embedding_norm])
@@ -126,9 +133,10 @@ def main():
     df["title"] = text_pipeline(df["title"].tolist())
     X_title = df["title"].to_numpy()
 
-    generator = RandomHardNegativeSemiLoader(X_title, df["label"].to_numpy(), qsize=params["QUERY_SIZE"],
-                                             pool_size=params["POOL_SIZE"], neg_size=params["NEG_SIZE"],
-                                             batch_size=params["BATCH_SIZE"], shuffle=True)
+    generator = RandomSemiHardNegativeLoader(X_title, df["label"].to_numpy(), qsize=params["query_size"],
+                                             pool_size=params["pool_size"], neg_size=params["neg_size"],
+                                             threshold=params["threshold"],
+                                             batch_size=params["batch_size"], shuffle=True)
 
     model, optimizer, loss_fn = create_model()
     checkpoint, checkpoint_prefix = create_checkpoint(model, optimizer)
@@ -140,7 +148,7 @@ def main():
             X_emb1, X_emb2 = model(x1), model(x2)
 
             y_pred = pairwise_dist(X_emb1, X_emb2)
-            loss_value = loss_fn(y_true=y, y_pred=y_pred)
+            loss_value = loss_fn(y_true=y, y_pred=y_pred, margin=params["margin"], agg=params["loss_agg"])
             del X_emb1, X_emb2
 
         grads = tape.gradient(loss_value, model.trainable_weights)
@@ -152,19 +160,19 @@ def main():
         X_emb1, X_emb2 = model(x1), model(x2)
 
         y_pred = pairwise_dist(X_emb1, X_emb2)
-        loss_value = loss_fn(y_true=y, y_pred=y_pred)
+        loss_value = loss_fn(y_true=y, y_pred=y_pred, margin=params["margin"], agg=params["loss_agg"])
 
         del X_emb1, X_emb2
 
         return loss_value
 
     steps_per_epoch = len(generator)
-    for epoch in range(params["EPOCHS"]):
-        print("\n Start epoch {}/{}".format((epoch + 1), params["EPOCHS"]))
+    for epoch in range(params["epochs"]):
+        print("\n Start epoch {}/{}".format((epoch + 1), params["epochs"]))
         pbar = tf.keras.utils.Progbar(steps_per_epoch)
         cum_loss_train = 0.0
 
-        generator.create_epoch_tuple(encoder,model)
+        generator.create_epoch_tuple(encoder, model)
 
         for step in range(steps_per_epoch):
             X_idx, y = generator.get(step)
@@ -187,8 +195,8 @@ def main():
         # checkpoint.save(file_prefix=checkpoint_prefix)
         model.save_weights(os.path.join(model_dir, "model"), save_format="h5", overwrite=True)
 
-    train_summary_writer.flush()
-    val_summary_writer.flush()
+    # train_summary_writer.flush()
+    # val_summary_writer.flush()
 
     # model.save_weights(os.path.join(model_dir, "model"), save_format="h5", overwrite=True)
 
