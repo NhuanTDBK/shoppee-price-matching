@@ -9,12 +9,10 @@ import numpy as np
 import pandas as pd
 import transformers
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
 
 from dataloader.semi_loader import RandomSemiHardNegativeLoader
 from features.pool import BertLastHiddenState, PoolingStrategy
-from modelling.dist import pairwise_dist, ManDist
-from modelling.loss import contrastive_loss
+from modelling.dist import ManDist
 from modelling.pooling import *
 from text.extractor import convert_unicode
 
@@ -105,12 +103,14 @@ def create_checkpoint(model, optimizer):
     checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
     return checkpoint, checkpoint_prefix
 
+
 def create_input():
     ids = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
     att = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
     tok = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
 
     return ids, att, tok
+
 
 def create_model():
     word_model = transformers.TFAutoModel.from_pretrained(params["model_name"], config=config)
@@ -125,13 +125,13 @@ def create_model():
     x2 = BertLastHiddenState(multi_sample_dropout=params["multi_dropout"])(x2)
 
     malstm_distance = ManDist()([x1, x2])
-    model = tf.keras.models.Model(inputs=[x1, x2], outputs=[malstm_distance])
+    model = tf.keras.models.Model(inputs=[[ids1, att1, tok1], [ids2, att2, tok2]], outputs=[malstm_distance])
 
     optimizer = tf.keras.optimizers.Adam()
     loss_fn = tf.keras.losses.mean_squared_error
     metric = tf.metrics.Accuracy()
 
-    model.compile(loss=loss_fn, optimizer=optimizer,)
+    model.compile(loss=loss_fn, optimizer=optimizer, )
     model.summary()
 
     return model, optimizer, loss_fn, metric
@@ -157,17 +157,16 @@ def main():
     def train_step(x1, x2, y):
         with tf.GradientTape() as tape:
             X_emb1, X_emb2 = model(x1), model(x2)
-            loss_value = loss_fn(y_true=y, y_pred=[X_emb1,X_emb2])
+            loss_value = loss_fn(y_true=y, y_pred=[X_emb1, X_emb2])
             del X_emb1, X_emb2
 
         grads = tape.gradient(loss_value, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-        y_pred = model.predict([[X_emb1,X_emb2]])
-        metric.update_state(y, y_pred,)
+        y_pred = model.predict([[X_emb1, X_emb2]])
+        metric.update_state(y, y_pred, )
 
         return loss_value
-
 
     for epoch in range(params["epoch"]):
         print("\n Start epoch {}/{}".format((epoch + 1), params["epoch"]))
@@ -177,18 +176,16 @@ def main():
         pbar = tf.keras.utils.Progbar(steps_per_epoch)
         cum_loss_train = 0.0
 
-
-
         for step in range(steps_per_epoch):
             X_idx, y = generator.get(step)
             X_1, X_2 = encoder(X_title[X_idx[:, 0]]), encoder(X_title[X_idx[:, 1]])
 
             logger.info("Sample trainset")
-            print(list(zip(*(X_title[X_idx[:10,0]],X_title[X_idx[:10,1]]))))
+            print(list(zip(*(X_title[X_idx[:10, 0]], X_title[X_idx[:10, 1]]))))
 
             loss_value = train_step(X_1, X_2, y)
 
-            pbar.update(step, values=[("log_loss", loss_value), ("acc",metric.result())])
+            pbar.update(step, values=[("log_loss", loss_value), ("acc", metric.result())])
             cum_loss_train += loss_value
 
             del X_1, X_2, X_idx
