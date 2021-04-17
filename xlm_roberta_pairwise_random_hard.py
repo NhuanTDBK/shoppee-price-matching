@@ -167,8 +167,8 @@ def main():
         return loss_value
 
 
-    for epoch in range(params["epochs"]):
-        print("\n Start epoch {}/{}".format((epoch + 1), params["epochs"]))
+    for epoch in range(params["epoch"]):
+        print("\n Start epoch {}/{}".format((epoch + 1), params["epoch"]))
 
         generator.create_epoch_tuple(encoder, model)
         steps_per_epoch = len(generator)
