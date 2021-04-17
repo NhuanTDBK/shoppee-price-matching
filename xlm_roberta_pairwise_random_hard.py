@@ -21,7 +21,7 @@ parser.add_argument("--max_len", type=int, default=70)
 parser.add_argument("--model_name", type=str, default='jplu/tf-xlm-roberta-base')
 parser.add_argument("--neg_size", type=int, default=5)
 parser.add_argument("--pool_size", type=int, default=20000)
-parser.add_argument("--epoch", type=int, default=2)
+parser.add_argument("--epoch", type=int, default=1)
 parser.add_argument("--batch_size", type=int, default=64)
 parser.add_argument("--query_size", type=int, default=1000)
 parser.add_argument("--margin", type=float, default=0.3)
@@ -116,7 +116,7 @@ def create_model():
 
     model = tf.keras.models.Model(inputs=[ids, att, tok], outputs=[embedding_norm])
 
-    optimizer = tf.keras.optimizers.Adam()
+    optimizer = tf.keras.optimizers.Adam(lr=1e-05)
     loss_fn = contrastive_loss
 
     model.compile(optimizer=optimizer, loss=loss_fn)
