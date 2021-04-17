@@ -166,13 +166,16 @@ def main():
 
         return loss_value
 
-    steps_per_epoch = len(generator)
+
     for epoch in range(params["epochs"]):
         print("\n Start epoch {}/{}".format((epoch + 1), params["epochs"]))
+
+        generator.create_epoch_tuple(encoder, model)
+        steps_per_epoch = len(generator)
         pbar = tf.keras.utils.Progbar(steps_per_epoch)
         cum_loss_train = 0.0
 
-        generator.create_epoch_tuple(encoder, model)
+
 
         for step in range(steps_per_epoch):
             X_idx, y = generator.get(step)
