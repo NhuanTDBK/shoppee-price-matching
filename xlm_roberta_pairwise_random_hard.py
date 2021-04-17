@@ -82,7 +82,7 @@ def encoder(titles: Union[str]):
 
 
 def create_tf_summary_writer():
-    tb_log_dir = os.path.join(params["DRIVE_PATH"], "logs")
+    tb_log_dir = os.path.join(drive_path, "logs")
 
     os.makedirs(tb_log_dir, exist_ok=True)
 
