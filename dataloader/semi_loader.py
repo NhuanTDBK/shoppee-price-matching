@@ -196,7 +196,7 @@ class RandomHardNegativeSemiLoader(object):
         return np.array(X, dtype=np.int), np.array(y, dtype=np.int)
 
 class RandomSemiHardNegativeLoader(object):
-    def __init__(self, X, qclusters, pool_size=100, batch_size=5, neg_size=5, pos_size=1, qsize=None, shuffle=True, threshold = 0.8):
+    def __init__(self, X, qclusters, pool_size=100, batch_size=5, neg_size=5, pos_size=1, qsize=None, shuffle=True, threshold = 0.8, neg_threshold=0.7):
         """
 
         """
@@ -210,6 +210,7 @@ class RandomSemiHardNegativeLoader(object):
         self.batch_size = batch_size
         self.indexes = np.arange(len(self.qclusters))
         self.threshold = threshold
+        self.neg_threshold = neg_threshold
 
         self.nclusters = len(np.unique(self.qclusters))
 
@@ -282,7 +283,7 @@ class RandomSemiHardNegativeLoader(object):
             self.pos_pair.append([left_idx,right_idx,1])
 
 
-        for i in range(len(min_neg_dist)):
+        for i in np.where(min_neg_dist<self.neg_threshold)[0]:
             neg_idx_by_random = np.random.choice(np.where(X_dist_neg[i]==min_neg_dist[i])[0],size=1)[0]
             left_idx, right_idx = self.qidxs[i], neg_idx_by_random
 
