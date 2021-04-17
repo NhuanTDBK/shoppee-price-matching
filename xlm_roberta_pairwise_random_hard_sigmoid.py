@@ -150,6 +150,7 @@ def main():
                                              batch_size=params["batch_size"], shuffle=True)
 
     model, optimizer, loss_fn, metric = create_model()
+
     checkpoint, checkpoint_prefix = create_checkpoint(model, optimizer)
     train_summary_writer, val_summary_writer = create_tf_summary_writer()
 

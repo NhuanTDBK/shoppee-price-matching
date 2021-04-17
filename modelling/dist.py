@@ -6,6 +6,28 @@ def pairwise_dist(x1, x2, eps=1e-6):
     return tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(x1, x2) + eps)))
 
 
+def pairwise_dist_matrix(A, B):
+    """
+    Computes pairwise distances between each elements of A and each elements of B.
+    Args:
+      A,    [m,d] matrix
+      B,    [n,d] matrix
+    Returns:
+      D,    [m,n] matrix of pairwise distances
+    """
+    # squared norms of each row in A and B
+    na = tf.reduce_sum(tf.square(A), 1)
+    nb = tf.reduce_sum(tf.square(B), 1)
+
+    # na as a row and nb as a co"lumn vectors
+    na = tf.reshape(na, [-1, 1])
+    nb = tf.reshape(nb, [1, -1])
+
+    # return pairwise euclidead difference matrix
+    D = tf.sqrt(tf.maximum(na - 2 * tf.matmul(A, B, False, True) + nb, 0.0))
+    return D
+
+
 class ManDist(tf.keras.layers.Layer):
     """
     Keras Custom Layer that calculates Manhattan Distance.
@@ -32,7 +54,7 @@ class ManDist(tf.keras.layers.Layer):
 
 if __name__ == "__main__":
     a = tf.constant([[1, 2], [4, 5]], dtype=tf.float32)
-    b = tf.constant([[1, 2], [4, 5]], dtype=tf.float32)
+    b = tf.constant([[1, 2], [4, 5.8]], dtype=tf.float32)
 
-    print(pairwise_dist(a, b))
-    # print(tf.linalg.norm(a-b))
+    print(pairwise_dist(a, b, eps=0))
+    print(tf.linalg.norm(a - b))

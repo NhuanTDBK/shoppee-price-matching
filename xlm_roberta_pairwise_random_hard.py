@@ -9,11 +9,9 @@ import numpy as np
 import pandas as pd
 import transformers
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
 
 from dataloader.semi_loader import RandomSemiHardNegativeLoader
 from features.pool import BertLastHiddenState, PoolingStrategy
-from modelling.dist import pairwise_dist
 from modelling.loss import contrastive_loss
 from modelling.pooling import *
 from text.extractor import convert_unicode
@@ -147,26 +145,26 @@ def main():
     def train_step(x1, x2, y):
         with tf.GradientTape() as tape:
             X_emb1, X_emb2 = model(x1), model(x2)
+            y_pred = tf.linalg.norm(X_emb1 - X_emb2)
 
-            y_pred = pairwise_dist(X_emb1, X_emb2)
             loss_value = loss_fn(y_true=y, y_pred=y_pred, margin=params["margin"], agg=params["loss_agg"])
             del X_emb1, X_emb2
 
         grads = tape.gradient(loss_value, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
-        return loss_value
-
-    @tf.function
-    def valid_step(x1, x2, y):
-        X_emb1, X_emb2 = model(x1), model(x2)
-
-        y_pred = pairwise_dist(X_emb1, X_emb2)
-        loss_value = loss_fn(y_true=y, y_pred=y_pred, margin=params["margin"], agg=params["loss_agg"])
-
-        del X_emb1, X_emb2
 
         return loss_value
 
+    # @tf.function
+    # def valid_step(x1, x2, y):
+    #     X_emb1, X_emb2 = model(x1), model(x2)
+    #
+    #     y_pred = pairwise_dist(X_emb1, X_emb2)
+    #     loss_value = loss_fn(y_true=y, y_pred=y_pred, margin=params["margin"], agg=params["loss_agg"])
+    #
+    #     del X_emb1, X_emb2
+    #
+    #     return loss_value
 
     for epoch in range(params["epoch"]):
         print("\n Start epoch {}/{}".format((epoch + 1), params["epoch"]))
@@ -176,13 +174,13 @@ def main():
         pbar = tf.keras.utils.Progbar(steps_per_epoch)
         cum_loss_train = 0.0
 
-
-
         for step in range(steps_per_epoch):
             X_idx, y = generator.get(step)
             X_1, X_2 = encoder(X_title[X_idx[:, 0]]), encoder(X_title[X_idx[:, 1]])
 
+            # print(X_idx)
             loss_value = train_step(X_1, X_2, y)
+
             pbar.update(step, values=[("log_loss", loss_value)])
 
             cum_loss_train += loss_value
