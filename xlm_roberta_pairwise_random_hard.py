@@ -8,6 +8,7 @@ from typing import Union
 import numpy as np
 import pandas as pd
 import transformers
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
 from dataloader.semi_loader import RandomSemiHardNegativeLoader
@@ -166,7 +167,6 @@ def main():
 
         return loss_value
 
-
     for epoch in range(params["epoch"]):
         print("\n Start epoch {}/{}".format((epoch + 1), params["epoch"]))
 
@@ -175,17 +175,20 @@ def main():
         pbar = tf.keras.utils.Progbar(steps_per_epoch)
         cum_loss_train = 0.0
 
-
-
         for step in range(steps_per_epoch):
             X_idx, y = generator.get(step)
-            X_1, X_2 = encoder(X_title[X_idx[:, 0]]), encoder(X_title[X_idx[:, 1]])
+            train_idx, val_idx, _, _ = train_test_split(np.arange(len(X_idx)), y, test_size=0.2,
+                                                        random_state=4111,
+                                                        shuffle=True)
+            X_1, X_2 = encoder(X_title[X_idx[:, 0][train_idx]]), encoder(X_title[X_idx[:, 1][train_idx]])
+            X_val_1, X_val_2 = encoder(X_title[X_idx[:, 0][val_idx]]), encoder(X_title[X_idx[:, 1][val_idx]])
+            y_train, y_test = y[train_idx], y[val_idx]
 
             # print(X_idx)
             loss_value = train_step(X_1, X_2, y)
+            val_loss_value = valid_step(X_val_1, X_val_2, y_test)
 
-            pbar.update(step, values=[("log_loss", loss_value)])
-
+            pbar.update(step, values=[("log_loss", loss_value), ("val_loss", val_loss_value)])
             cum_loss_train += loss_value
 
             del X_1, X_2, X_idx
