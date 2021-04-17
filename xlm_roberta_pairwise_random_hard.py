@@ -97,7 +97,7 @@ def create_tf_summary_writer():
 
 
 def create_checkpoint(model, optimizer):
-    checkpoint_prefix = os.path.join(params["DRIVE_PATH"], "tmp/training_checkpoints", params["model_name"], "ckpt")
+    checkpoint_prefix = os.path.join(drive_path, "tmp/training_checkpoints", params["model_name"], "ckpt")
 
     # Create a Checkpoint that will manage two objects with trackable state,
     # one we name "optimizer" and the other we name "model".
