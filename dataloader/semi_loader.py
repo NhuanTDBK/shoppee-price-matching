@@ -1,12 +1,12 @@
-import gc
 import logging
 import math
+import gc
+import scipy
 
 import numpy as np
-import scipy
 import tensorflow as tf
 
-from modelling.dist import pairwise_dist, pairwise_dist_matrix
+from modelling.dist import pairwise_dist
 
 logger = logging.getLogger("semi_loader")
 
@@ -195,10 +195,8 @@ class RandomHardNegativeSemiLoader(object):
 
         return np.array(X, dtype=np.int), np.array(y, dtype=np.int)
 
-
 class RandomSemiHardNegativeLoader(object):
-    def __init__(self, X, qclusters, pool_size=100, batch_size=5, neg_size=5, pos_size=1, qsize=None, shuffle=True,
-                 threshold=0, neg_threshold=0.7):
+    def __init__(self, X, qclusters, pool_size=100, batch_size=5, neg_size=5, pos_size=1, qsize=None, shuffle=True, threshold = 0.8, neg_threshold=0.7):
         """
 
         """
@@ -233,7 +231,7 @@ class RandomSemiHardNegativeLoader(object):
         logger.info(">> Creating tuples for an epoch -----")
 
         self.mask = np.ones(len(self.qclusters), dtype=np.uint8)
-        self.qidxs = np.zeros(self.qsize, dtype=np.uint8)
+        self.qidxs = np.zeros(self.qsize,dtype=np.uint8)
         self.indexes = np.arange(len(self.qidxs))
 
         # Select positive item and mask all related ones
@@ -245,58 +243,61 @@ class RandomSemiHardNegativeLoader(object):
             for t in y_pos_idxs:
                 self.mask[t] = 0
 
-        X_emb = embedding_model.predict(encoder(self.X), batch_size=1024, verbose=1)
-        X_emb_query = X_emb[self.qidxs]
 
-        X_dist = pairwise_dist_matrix(X_emb_query, X_emb)
+
+        X_emb = embedding_model.predict(encoder(self.X),batch_size=1024,verbose=1)
+        X_dist = np.dot(X_emb, X_emb.T)
 
         # del X_emb
 
         mask_pos = ~self.item2item[self.qidxs].toarray().astype(np.bool)
         mask_neg = ~mask_pos
 
-        X_dist_pos = np.ma.masked_array(X_dist, mask=mask_pos)
-        X_dist_neg = np.ma.masked_array(X_dist, mask=mask_neg)
+        X_emd_query = X_dist[self.qidxs]
+
+        X_dist_pos = np.ma.masked_array(X_emd_query, mask=mask_pos)
+        X_dist_neg = np.ma.masked_array(X_emd_query, mask=mask_neg)
+
 
         logger.info(">> Searching for hard negatives...")
 
         # # Select hardest positive, if it's similar with model => skip
-        min_pos_dist = X_dist_pos.min(axis=1)
-        min_neg_dist = X_dist_neg.max(axis=1)
+        min_pos_dist =  X_dist_pos.min(axis=1)
+        min_neg_dist =  X_dist_neg.min(axis=1)
+
 
         self.pos_pair = []
         self.neg_pair = []
 
-        cum_ndist_pos, cum_ndist_neg = tf.Variable(0.0, trainable=False, dtype=tf.float32), tf.Variable(0.0,
-                                                                                                        trainable=False,
-                                                                                                        dtype=tf.float32)
-        n_ndist, p_ndist = 0, 0
 
-        for i in np.where(min_pos_dist > self.threshold)[0]:
-            pos_idx_by_random = np.random.choice(np.where(X_dist_pos[i] == min_pos_dist[i])[0], size=self.pos_size)[0]
+        cum_ndist_pos, cum_ndist_neg = tf.Variable(0.0, trainable=False, dtype=tf.float32),tf.Variable(0.0, trainable=False, dtype=tf.float32)
+        n_ndist, p_ndist = 0,0
+
+        for i in np.where(min_pos_dist>=self.threshold)[0]:
+            pos_idx_by_random = np.random.choice(np.where(X_dist_pos[i]==min_pos_dist[i])[0],size=1)[0]
             left_idx, right_idx = self.qidxs[i], pos_idx_by_random
 
-            # cum_ndist_pos.assign_add(pairwise_dist(X_emb[left_idx], X_emb[right_idx]))
-            cum_ndist_pos.assign_add(X_dist[left_idx][right_idx])
+            cum_ndist_pos.assign_add(pairwise_dist(X_emb[left_idx], X_emb[right_idx]))
             p_ndist += 1
 
-            self.pos_pair.append([left_idx, right_idx, 1])
+            self.pos_pair.append([left_idx,right_idx,1])
 
-        for i in np.where(min_neg_dist > self.threshold)[0]:
-            neg_idx_by_random = np.random.choice(np.where(X_dist_neg[i] == min_neg_dist[i])[0], size=self.neg_size)[0]
+
+        for i in np.where(min_neg_dist<self.threshold)[0]:
+            neg_idx_by_random = np.random.choice(np.where(X_dist_neg[i]==min_neg_dist[i])[0],size=1)[0]
             left_idx, right_idx = self.qidxs[i], neg_idx_by_random
 
-            cum_ndist_neg.assign_add(X_dist[left_idx][right_idx])
+            cum_ndist_neg.assign_add(pairwise_dist(X_emb[left_idx], X_emb[right_idx]))
             n_ndist += 1
 
-            self.neg_pair.append([left_idx, right_idx, 0])
+            self.neg_pair.append([left_idx,right_idx,0])
 
-        logger.info("Average negative l2-distance: {:.6f}".format(cum_ndist_pos.value() / p_ndist))
-        logger.info("Average positive l2-distance: {:.6f}".format(cum_ndist_neg.value() / n_ndist))
+        logger.info("Average negative l2-distance: {:.6f}".format(cum_ndist_pos.value()/p_ndist))
+        logger.info("Average positive l2-distance: {:.6f}".format(cum_ndist_neg.value()/n_ndist))
 
-        self.pair = np.append(self.pos_pair, self.neg_pair, axis=0)
+        self.pair = np.append(self.pos_pair, self.neg_pair,axis=0)
 
-        del X_emb, X_dist
+        del X_emb, X_dist, X_emd_query
         gc.collect()
 
     def __len__(self):
@@ -304,7 +305,7 @@ class RandomSemiHardNegativeLoader(object):
 
     def get(self, idx):
         batch_x_idxs = self.indexes[idx * self.batch_size:(idx + 1) * self.batch_size]
-        X = self.pair[batch_x_idxs, :2]
-        y = self.pair[batch_x_idxs, -1]
+        X = self.pair[batch_x_idxs,:2]
+        y = self.pair[batch_x_idxs,-1]
 
         return np.array(X, dtype=np.int), np.array(y, dtype=np.int)
