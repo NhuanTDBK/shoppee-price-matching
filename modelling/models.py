@@ -34,11 +34,10 @@ class TextProductMatch(layers.Layer):
     def __init__(self, n_classes,
                  dropout=0.0,
                  metric="arcface",
-                 s=24.0,
-                 margin=0.3,
+                 s=30.0,
+                 margin=0.5,
                  ls_eps=0.0,
                  theta_zero=0.85,
-                 is_softmax=False,
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.n_classes = n_classes
@@ -48,7 +47,6 @@ class TextProductMatch(layers.Layer):
         self.margin = margin
         self.ls_eps = ls_eps
         self.theta_zero = theta_zero
-        self.is_softmax = is_softmax
 
         self.metric_layer = metric_layer_dict[metric](num_classes=self.n_classes,
                                                       margin=self.margin,
@@ -56,11 +54,9 @@ class TextProductMatch(layers.Layer):
 
     def call(self, inputs, training=None, mask=None):
         x, y = inputs
-
         x = self.metric_layer([x, y])
         x = layers.Softmax(dtype="float64")(x)
-
         return x
 
     def compute_output_shape(self, input_shape):
-        return (None, self.n_classes)
+        return None, self.n_classes
