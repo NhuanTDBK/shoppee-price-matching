@@ -42,7 +42,7 @@ SEED = 3110
 # Verbosity
 VERBOSE = 1
 N_CLASSES = 11014
-MODEL_NAME = 'bert-base-multilingual-uncased'
+MODEL_NAME = params["model_name"]
 config = transformers.BertConfig.from_pretrained(MODEL_NAME)
 config.output_hidden_states = True
 word_model = TFBertModel.from_pretrained(MODEL_NAME, config=config)
