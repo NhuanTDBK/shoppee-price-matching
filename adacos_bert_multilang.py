@@ -121,15 +121,15 @@ class ArcMarginProduct(tf.keras.layers.Layer):
         super(ArcMarginProduct, self).__init__(**kwargs)
 
         self.n_classes = n_classes
-        self.s = tf.constant(s)
-        self.m = tf.constant(m)
+        self.s = tf.constant(s,dtype=tf.float32)
+        self.m = tf.constant(m,dtype=tf.float32)
 
-        self.ls_eps = ls_eps
-        self.easy_margin = easy_margin
+        self.ls_eps = tf.constant(ls_eps,dtype=tf.float32)
+        self.easy_margin = tf.constant(easy_margin,dtype=tf.float32)
         self.cos_m = tf.math.cos(m)
         self.sin_m = tf.math.sin(m)
         self.th = tf.math.cos(math.pi - m)
-        self.mm = tf.math.sin(math.pi - m) * m
+        self.mm = tf.multiply(tf.math.sin(math.pi - m), m)
 
     def get_config(self):
 
