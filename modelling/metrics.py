@@ -17,7 +17,7 @@ class CosineSimilarity(layers.Layer):
     def build(self, input_shape):
         input_dim = input_shape[-1]
         self.W = self.add_weight(shape=(input_dim, self.num_classes),
-                                 initializer='random_normal',
+                                 initializer='glorot_uniform',
                                  trainable=True)
 
     def call(self, inputs, **kwargs):

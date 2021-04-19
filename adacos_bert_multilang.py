@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import transformers
+
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from transformers import BertTokenizer, TFBertModel
@@ -20,11 +21,11 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--max_len", type=int, default=70)
     parser.add_argument("--model_name", type=str, default='bert-base-multilingual-uncased')
-    parser.add_argument("--epochs", type=int, default=1)
+    parser.add_argument("--epochs", type=int, default=25)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--margin", type=float, default=0.5)
     parser.add_argument("--s", type=float, default=30)
-    parser.add_argument("--pool", type=str, default=PoolingStrategy.REDUCE_MEAN_MAX)
+    parser.add_argument("--pool", type=str, default=PoolingStrategy.REDUCE_MEAN)
     parser.add_argument("--multi_dropout", type=bool, default=True)
     parser.add_argument("--last_hidden_states", type=int, default=3)
     parser.add_argument("--lr", type=float, default=0.00001)
@@ -188,13 +189,17 @@ def create_model(max_len=512, lr=0.00001, s=30, m=0.5):
     label = tf.keras.layers.Input(shape=(), name='label')
 
     x1 = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
-    embedding = BertLastHiddenState(multi_sample_dropout=True)(x1)
+    embedding = BertLastHiddenState(mode=params["pooling"],
+                                    multi_sample_dropout=params["multi_dropout"],
+                                    last_hidden_states=params["last_hidden_states"])(x1)
     x = margin([embedding, label])
     output = tf.keras.layers.Softmax(dtype='float32')(x)
     model = tf.keras.models.Model(inputs=[ids, att, tok, label], outputs=[output])
     model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
                   loss=[tf.keras.losses.SparseCategoricalCrossentropy()],
                   metrics=[tf.keras.metrics.SparseCategoricalAccuracy()])
+
+    model.summary()
     return model
 
 
