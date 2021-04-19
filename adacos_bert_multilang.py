@@ -62,9 +62,9 @@ def encoder(titles: Union[str]):
     for i in range(len(titles)):
         ct[i] = convert_unicode(titles[i].lower())
 
-    input_ids = np.ones((ct, params["max_len"]), dtype='int32')
-    att_masks = np.zeros((ct, params["max_len"]), dtype='int32')
-    token_type_ids = np.zeros((ct, params["max_len"]), dtype='int32')
+    input_ids = np.ones((len(ct), params["max_len"]), dtype='int32')
+    att_masks = np.zeros((len(ct), params["max_len"]), dtype='int32')
+    token_type_ids = np.zeros((len(ct), params["max_len"]), dtype='int32')
 
     for i in range(len(titles)):
         enc = tokenizer.encode_plus(titles[i],
