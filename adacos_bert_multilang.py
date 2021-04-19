@@ -88,16 +88,14 @@ def read_and_preprocess():
     df['matches'] = df['label_group'].map(tmp)
     df['matches'] = df['matches'].apply(lambda x: ' '.join(x))
     df['label_group'] = LabelEncoder().fit_transform(df['label_group'])
-    N_CLASSES = df['label_group'].nunique()
-    print(f'We have {N_CLASSES} classes')
-    x_train_raw, x_val_raw, y_train, y_val = train_test_split(df[['title']], df['label_group'], shuffle=True,
+    x_train_raw, x_val_raw, y_train, y_val = train_test_split(df[['title']].to_numpy(), df['label_group'], shuffle=True,
                                                               stratify=df['label_group'], random_state=SEED,
                                                               test_size=0.33)
 
     x_train = encoder(x_train_raw)
     x_val = encoder(x_val_raw)
 
-    return df, N_CLASSES, x_train, x_val, y_train, y_val
+    return df, x_train, x_val, y_train, y_val
 
 
 # Arcmarginproduct class keras layer
@@ -204,7 +202,7 @@ def main():
     print("Loading data")
     params = parse_args()
     seed_everything(SEED)
-    df, N_CLASSES, x_train, x_val, y_train, y_val = read_and_preprocess()
+    df, x_train, x_val, y_train, y_val = read_and_preprocess()
 
     callbacks = [
         tf.keras.callbacks.TensorBoard(write_graph=False)
