@@ -22,7 +22,8 @@ def parse_args():
     parser.add_argument("--model_name", type=str, default='bert-base-multilingual-uncased')
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--margin", type=float, default=0.3)
+    parser.add_argument("--margin", type=float, default=0.5)
+    parser.add_argument("--s", type=float, default=30)
     parser.add_argument("--pool", type=str, default=PoolingStrategy.REDUCE_MEAN_MAX)
     parser.add_argument("--multi_dropout", type=bool, default=True)
     parser.add_argument("--last_hidden_states", type=int, default=3)
@@ -82,7 +83,7 @@ def encoder(titles: Union[str]):
 
 
 def read_and_preprocess():
-    df = pd.read_csv('.train.csv')
+    df = pd.read_csv('./train.csv')
     tmp = df.groupby(['label_group'])['posting_id'].unique().to_dict()
     df['matches'] = df['label_group'].map(tmp)
     df['matches'] = df['matches'].apply(lambda x: ' '.join(x))
@@ -174,11 +175,11 @@ class ArcMarginProduct(tf.keras.layers.Layer):
 
 
 # Function to build bert model
-def create_model(max_len=512, lr=0.00001):
+def create_model(max_len=512, lr=0.00001, s=30, m=0.5):
     margin = ArcMarginProduct(
         n_classes=N_CLASSES,
-        s=30,
-        m=0.5,
+        s=s,
+        m=m,
         name='head/arc_margin',
         dtype='float32'
     )
@@ -209,7 +210,7 @@ def main():
         tf.keras.callbacks.TensorBoard(write_graph=False)
     ]
 
-    model = create_model(params["max_len"])
+    model = create_model(params["max_len"], params["margin"], params["s"])
 
     model.fit([x_train, y_train], y_train,
               epochs=params["epochs"],
