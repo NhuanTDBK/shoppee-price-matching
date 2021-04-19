@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import transformers
-
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from transformers import BertTokenizer, TFBertModel
@@ -28,6 +27,7 @@ def parse_args():
     parser.add_argument("--pool", type=str, default=PoolingStrategy.REDUCE_MEAN)
     parser.add_argument("--multi_dropout", type=bool, default=True)
     parser.add_argument("--last_hidden_states", type=int, default=3)
+    parser.add_argument("--fc_dim", type=int, default=None)
     parser.add_argument("--lr", type=float, default=0.00001)
 
     args = parser.parse_args()
@@ -45,7 +45,9 @@ N_CLASSES = 11014
 MODEL_NAME = params["model_name"]
 config = transformers.BertConfig.from_pretrained(MODEL_NAME)
 config.output_hidden_states = True
-word_model = TFBertModel.from_pretrained(MODEL_NAME, config=config)
+
+
+# config.output_attentions = True
 
 
 def seed_everything(seed):
@@ -88,9 +90,12 @@ def read_and_preprocess():
     tmp = df.groupby(['label_group'])['posting_id'].unique().to_dict()
     df['matches'] = df['label_group'].map(tmp)
     df['matches'] = df['matches'].apply(lambda x: ' '.join(x))
-    df['label_group'] = LabelEncoder().fit_transform(df['label_group'])
-    x_train_raw, x_val_raw, y_train, y_val = train_test_split(df['title'].to_numpy(), df['label_group'].to_numpy(), shuffle=True,
-                                                              stratify=df['label_group'].to_numpy(), random_state=SEED,
+    y = LabelEncoder().fit_transform(df['label_group'].tolist())
+    x_train_raw, x_val_raw, y_train, y_val = train_test_split(df['title'].to_numpy(),
+                                                              y,
+                                                              shuffle=True,
+                                                              stratify=df['label_group'].to_numpy(),
+                                                              random_state=SEED,
                                                               test_size=0.33)
 
     x_train = encoder(x_train_raw)
@@ -116,8 +121,9 @@ class ArcMarginProduct(tf.keras.layers.Layer):
         super(ArcMarginProduct, self).__init__(**kwargs)
 
         self.n_classes = n_classes
-        self.s = s
-        self.m = m
+        self.s = tf.constant(s)
+        self.m = tf.constant(m)
+
         self.ls_eps = ls_eps
         self.easy_margin = easy_margin
         self.cos_m = tf.math.cos(m)
@@ -161,6 +167,7 @@ class ArcMarginProduct(tf.keras.layers.Layer):
             phi = tf.where(cosine > 0, phi, cosine)
         else:
             phi = tf.where(cosine > self.th, phi, cosine - self.mm)
+
         one_hot = tf.cast(
             tf.one_hot(y, depth=self.n_classes),
             dtype=cosine.dtype
@@ -168,13 +175,15 @@ class ArcMarginProduct(tf.keras.layers.Layer):
         if self.ls_eps > 0:
             one_hot = (1 - self.ls_eps) * one_hot + self.ls_eps / self.n_classes
 
-        output = (one_hot * phi) + ((1.0 - one_hot) * cosine)
-        output *= self.s
+        output = tf.add(tf.multiply(one_hot, phi), tf.multiply(tf.subtract(1.0, one_hot), cosine))
+        output = tf.multiply(output, self.s)
         return output
 
 
 # Function to build bert model
 def create_model(max_len=512, lr=0.00001, s=30, m=0.5):
+    word_model = TFBertModel.from_pretrained(MODEL_NAME, config=config)
+
     margin = ArcMarginProduct(
         n_classes=N_CLASSES,
         s=s,
@@ -190,18 +199,19 @@ def create_model(max_len=512, lr=0.00001, s=30, m=0.5):
 
     x1 = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
     embedding = BertLastHiddenState(mode=params["pool"],
+                                    fc_dim=params["fc_dim"],
                                     multi_sample_dropout=params["multi_dropout"],
                                     last_hidden_states=params["last_hidden_states"])(x1)
-    x = margin([embedding, label])
-    output = tf.keras.layers.Softmax(dtype='float32')(x)
+
+    output = margin([embedding, label])
+    # output = tf.keras.layers.Softmax(dtype='float32')(output)
     model = tf.keras.models.Model(inputs=[ids, att, tok, label], outputs=[output])
     model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
-                  loss=[tf.keras.losses.SparseCategoricalCrossentropy()],
+                  loss=[tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)],
                   metrics=[tf.keras.metrics.SparseCategoricalAccuracy()])
 
     model.summary()
     return model
-
 
 def main():
     print("Loading data")

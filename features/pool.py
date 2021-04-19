@@ -23,7 +23,7 @@ class PoolingStrategy(Enum):
 
 
 class BertLastHiddenState(tf.keras.layers.Layer):
-    def __init__(self, last_hidden_states=3, mode=PoolingStrategy.REDUCE_MEAN_MAX, fc_dim=512,
+    def __init__(self, last_hidden_states=3, mode=PoolingStrategy.REDUCE_MEAN_MAX, fc_dim=None,
                  multi_sample_dropout=False):
         super(BertLastHiddenState, self).__init__()
 
@@ -57,7 +57,9 @@ class BertLastHiddenState(tf.keras.layers.Layer):
                 dense_fc.append(x1)
 
             out = tf.keras.layers.Average()(dense_fc)
-        else:
+        elif self.fc_dim is not None:
             out = self.fc(x_pool)
+        else:
+            out = x_pool
 
         return out
