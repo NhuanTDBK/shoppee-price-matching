@@ -86,12 +86,12 @@ def main():
     dat["title"] = dat["title"].map(lambda d: convert_unicode(d.lower()))
     X = encoder(dat["title"].tolist())
 
-    y = np.array(LabelEncoder().fit_transform(dat["label_group"].tolist()))
-    y = tf.keras.utils.to_categorical(y, num_classes=N_CLASSES)
+    y_raw = np.array(LabelEncoder().fit_transform(dat["label_group"].tolist()))
+    y = tf.keras.utils.to_categorical(y_raw, num_classes=N_CLASSES)
 
     cv = StratifiedKFold(5, random_state=4111, shuffle=True)
 
-    for (train_idx, test_idx) in cv.split(X[0], y):
+    for (train_idx, test_idx) in cv.split(X[0], y_raw):
         X_train, y_train, X_test, y_test = (X[0][train_idx], X[1][train_idx], X[2][train_idx]), y[train_idx], (
             X[0][test_idx], X[1][test_idx], X[2][test_idx]), y[test_idx]
 
