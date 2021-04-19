@@ -87,7 +87,7 @@ def main():
     X = encoder(dat["title"].tolist())
 
     y = np.array(LabelEncoder().fit_transform(dat["label_group"].tolist()))
-    y = tf.keras.utils.to_categorical(y, num_classes=params["N_CLASSES"])
+    y = tf.keras.utils.to_categorical(y, num_classes=N_CLASSES)
 
     cv = StratifiedKFold(5, random_state=4111, shuffle=True)
 
