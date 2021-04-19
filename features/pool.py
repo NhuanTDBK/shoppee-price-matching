@@ -31,6 +31,7 @@ class BertLastHiddenState(tf.keras.layers.Layer):
         self.mode = mode
         self.fc_dim = fc_dim
 
+        self.fc = None
         if fc_dim:
             self.fc = tf.keras.models.Sequential(tf.keras.layers.Dense(self.fc_dim))
         self.multi_sample_dropout = multi_sample_dropout
@@ -50,7 +51,7 @@ class BertLastHiddenState(tf.keras.layers.Layer):
         elif self.mode == PoolingStrategy.REDUCE_MEAN:
             x_pool = tf.math.reduce_mean(x1, axis=1)
 
-        if self.multi_sample_dropout:
+        if self.multi_sample_dropout and self.fc_dim:
             dense_fc = []
             for p in np.linspace(0.1, 0.5, 5):
                 x1 = tf.keras.layers.Dropout(p)(x_pool)
@@ -58,7 +59,7 @@ class BertLastHiddenState(tf.keras.layers.Layer):
                 dense_fc.append(x1)
 
             out = tf.keras.layers.Average()(dense_fc)
-        elif self.fc_dim is not None:
+        elif not self.multi_sample_dropout and self.fc_dim is not None:
             out = self.fc(x_pool)
         else:
             out = x_pool
