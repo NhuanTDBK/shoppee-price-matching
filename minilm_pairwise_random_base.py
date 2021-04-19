@@ -35,6 +35,7 @@ config = transformers.XLMRobertaConfig.from_pretrained(params["MODEL_NAME"])
 config.output_hidden_states = True
 tokenizer = transformers.XLMRobertaTokenizer.from_pretrained(params["MODEL_NAME"])
 
+"/content/drive/MyDrive/shopee-price"
 model_dir = os.path.join(params["DRIVE_PATH"], "saved",params["MODEL_NAME"])
 os.makedirs(model_dir, exist_ok=True)
 

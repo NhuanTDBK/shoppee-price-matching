@@ -1,4 +1,6 @@
 import argparse
+import os
+import random
 from typing import Union
 
 import numpy as np
@@ -12,6 +14,16 @@ from transformers import BertTokenizer, TFBertModel
 from features.pool import BertLastHiddenState, PoolingStrategy
 from modelling.models import TextProductMatch
 from text.extractor import convert_unicode
+
+SEED = 4111
+
+
+# Function to seed everything
+def seed_everything(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    tf.random.set_seed(seed)
 
 
 def parse_args():
@@ -39,12 +51,14 @@ params = parse_args()
 N_CLASSES = 11014
 config = transformers.BertConfig.from_pretrained(params["model_name"])
 config.output_hidden_states = True
-word_model = TFBertModel.from_pretrained(params["model_name"], config=config)
 
-tokenizer = BertTokenizer.from_pretrained(params["model_name"])
+saved_path = "/content/drive/MyDrive/shopee-price"
+model_dir = os.path.join(saved_path, "saved", params["model_name"])
+os.makedirs(model_dir, exist_ok=True)
 
 
 def encoder(titles: Union[str]):
+    tokenizer = BertTokenizer.from_pretrained(params["model_name"])
     ct = len(titles)
 
     input_ids = np.ones((ct, params["max_len"]), dtype='int32')
@@ -67,44 +81,9 @@ def encoder(titles: Union[str]):
     return input_ids, att_masks, token_type_ids
 
 
-def main():
-    print("Loading data")
-    dat = pd.read_csv("train.csv")
-
-    dat["title"] = dat["title"].map(lambda d: convert_unicode(d.lower()))
-    X = encoder(dat["title"].tolist())
-
-    y_raw = np.array(LabelEncoder().fit_transform(dat["label_group"].tolist()))
-    y = tf.keras.utils.to_categorical(y_raw, num_classes=N_CLASSES)
-
-    cv = StratifiedKFold(5, random_state=4111, shuffle=True)
-
-    for (train_idx, test_idx) in cv.split(X[0], y_raw):
-        X_train, y_train, X_test, y_test = (X[0][train_idx], X[1][train_idx], X[2][train_idx]), y[train_idx], (
-            X[0][test_idx], X[1][test_idx], X[2][test_idx]), y[test_idx]
-
-        model = create_model()
-        model.compile(
-            optimizer=tf.keras.optimizers.Adam(lr=params["lr"]),
-            loss=tf.keras.losses.CategoricalCrossentropy(),
-            metrics=tf.keras.metrics.CategoricalAccuracy(),
-        )
-
-        callbacks = [
-            tf.keras.callbacks.TensorBoard(write_graph=False)
-        ]
-
-        model.fit([X_train, y_train], y_train,
-                  epochs=params["epochs"],
-                  batch_size=params["batch_size"],
-                  validation_data=([X_test, y_test], y_test),
-                  callbacks=callbacks)
-        # model.save(PATH_NAME)
-
-        break
-
-
 def create_model():
+    word_model = TFBertModel.from_pretrained(params["model_name"], config=config)
+
     ids = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
     att = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
     tok = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
@@ -125,6 +104,42 @@ def create_model():
     model.summary()
 
     return model
+
+
+def main():
+    print("Loading data")
+    dat = pd.read_csv("train.csv")
+
+    dat["title"] = dat["title"].map(lambda d: convert_unicode(d.lower()))
+    X = encoder(dat["title"].tolist())
+
+    y_raw = np.array(LabelEncoder().fit_transform(dat["label_group"].tolist()))
+    y = tf.keras.utils.to_categorical(y_raw, num_classes=N_CLASSES)
+
+    cv = StratifiedKFold(5, random_state=SEED, shuffle=True)
+
+    for fold_idx,(train_idx, test_idx) in enumerate(cv.split(X[0], y_raw)):
+        X_train, y_train, X_test, y_test = (X[0][train_idx], X[1][train_idx], X[2][train_idx]), y[train_idx], (
+            X[0][test_idx], X[1][test_idx], X[2][test_idx]), y[test_idx]
+
+        model = create_model()
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(lr=params["lr"]),
+            loss=tf.keras.losses.CategoricalCrossentropy(),
+            metrics=tf.keras.metrics.CategoricalAccuracy(),
+        )
+
+        callbacks = [
+            tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5)
+        ]
+
+        model.fit([X_train, y_train], y_train,
+                  epochs=params["epochs"],
+                  batch_size=params["batch_size"],
+                  validation_data=([X_test, y_test], y_test),
+                  callbacks=callbacks)
+
+        model.save_weights(os.path.join(model_dir,"fold_%s"%fold_idx, "weights.h5"), overwrite=True, save_format="h5")
 
 
 if __name__ == "__main__":
