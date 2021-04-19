@@ -33,7 +33,7 @@ class BertLastHiddenState(tf.keras.layers.Layer):
 
         self.fc = None
         if fc_dim:
-            self.fc = tf.keras.models.Sequential(tf.keras.layers.Dense(self.fc_dim))
+            self.fc = tf.keras.models.Sequential(tf.keras.layers.Dense(self.fc_dim, activation="relu"))
         self.multi_sample_dropout = multi_sample_dropout
 
     def call(self, inputs):
