@@ -14,18 +14,6 @@ from modelling.models import TextProductMatch
 from text.extractor import convert_unicode
 
 
-# params = {
-#     "N_CLASSES": 11014,
-#     "max_len": 50,
-#     "model_name": 'bert-base-multilingual-uncased',
-#     "POOLING": "global_avg_1d",
-#     "EPOCHS": 10,
-#     "BATCH_SIZE": 32,
-#     "METRIC": "circle_cl",
-#     "LAST_HIDDEN_STATES": 3
-# }
-
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--max_len", type=int, default=70)
@@ -130,7 +118,7 @@ def create_model():
                              multi_sample_dropout=True)(x)
 
     x1 = TextProductMatch(N_CLASSES,
-                          metric=params["METRIC"],
+                          metric=params["metric"],
                           use_fc=True)([x1, labels_onehot])
 
     model = tf.keras.Model(inputs=[[ids, att, tok], labels_onehot], outputs=[x1])
