@@ -189,7 +189,7 @@ def create_model(max_len=512, lr=0.00001, s=30, m=0.5):
     label = tf.keras.layers.Input(shape=(), name='label')
 
     x1 = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
-    embedding = BertLastHiddenState(mode=params["pooling"],
+    embedding = BertLastHiddenState(mode=params["pool"],
                                     multi_sample_dropout=params["multi_dropout"],
                                     last_hidden_states=params["last_hidden_states"])(x1)
     x = margin([embedding, label])
