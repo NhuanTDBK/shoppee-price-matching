@@ -88,8 +88,8 @@ def read_and_preprocess():
     df['matches'] = df['label_group'].map(tmp)
     df['matches'] = df['matches'].apply(lambda x: ' '.join(x))
     df['label_group'] = LabelEncoder().fit_transform(df['label_group'])
-    x_train_raw, x_val_raw, y_train, y_val = train_test_split(df[['title']].to_numpy(), df['label_group'], shuffle=True,
-                                                              stratify=df['label_group'], random_state=SEED,
+    x_train_raw, x_val_raw, y_train, y_val = train_test_split(df['title'].to_numpy(), df['label_group'].to_numpy(), shuffle=True,
+                                                              stratify=df['label_group'].to_numpy(), random_state=SEED,
                                                               test_size=0.33)
 
     x_train = encoder(x_train_raw)
