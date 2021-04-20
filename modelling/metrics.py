@@ -248,15 +248,16 @@ class ArcFace(layers.Layer):
         # subtract margin from logits
         target_logits = tf.cos(theta + self.margin)
         # get cross entropy
-        logits = logits * (1 - onehot_labels) + target_logits * onehot_labels
+        onehot_labels = tf.cast(onehot_labels, dtype=tf.float32)
+        logits = tf.add(tf.multiply(logits,(1 - onehot_labels)),tf.multiply(target_logits,onehot_labels))
         # apply scaling
         logits = logits * self.scale
         # get class probability distribution
-        predictions = tf.nn.softmax(logits)
-        return predictions
+        # predictions = tf.nn.softmax(logits)
+        return logits
 
     def compute_output_shape(self, input_shape):
-        return (None, self.num_classes)
+        return None, self.num_classes
 
     def get_config(self):
         config = super().get_config().copy()

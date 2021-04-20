@@ -96,8 +96,7 @@ def create_model():
                              fc_dim=512,
                              multi_sample_dropout=True)(x)
 
-    x1 = TextProductMatch(N_CLASSES,
-                          metric=params["metric"])([x1, labels_onehot])
+    x1 = TextProductMatch(N_CLASSES,metric=params["metric"])([x1, labels_onehot])
 
     model = tf.keras.Model(inputs=[[ids, att, tok], labels_onehot], outputs=[x1])
 
