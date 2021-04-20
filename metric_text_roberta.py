@@ -115,6 +115,7 @@ def main():
     y_raw = np.array(LabelEncoder().fit_transform(dat["label_group"].tolist()))
     y = tf.keras.utils.to_categorical(y_raw, num_classes=N_CLASSES)
 
+
     N_FOLDS = 5
     cv = StratifiedKFold(N_FOLDS,random_state=SEED, shuffle=True)
     for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X[0], y_raw)):
@@ -147,7 +148,7 @@ def main():
                   validation_data=([X_test, y_test], y_test),
                   callbacks=callbacks)
 
-        model.save_weights(os.path.join(model_dir,"fold_%s_weights.h5"%fold_idx), overwrite=True, save_format="tf")
+        model.save_weights(os.path.join(model_dir,"fold_%s_weights"%fold_idx), overwrite=True, save_format="tf")
 
 
 if __name__ == "__main__":

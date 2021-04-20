@@ -147,7 +147,7 @@ def main():
                   validation_data=([X_test, y_test], y_test),
                   callbacks=callbacks)
 
-        model.save_weights(os.path.join(model_dir,"fold_%s_weights.h5"%fold_idx), overwrite=True, save_format="tf")
+        model.save_weights(os.path.join(model_dir,"fold_%s_weights"%fold_idx), overwrite=True, save_format="tf")
 
 
 if __name__ == "__main__":
