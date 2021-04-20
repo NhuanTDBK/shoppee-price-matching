@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import transformers
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.preprocessing import LabelEncoder
 from transformers import BertTokenizer, TFBertModel
 
@@ -116,29 +116,35 @@ def main():
     y = tf.keras.utils.to_categorical(y_raw, num_classes=N_CLASSES)
 
     cv = StratifiedKFold(3, random_state=SEED, shuffle=True)
+    train_idx, test_idx, _,_ = train_test_split(np.arange(len(X[0])), y_raw,test_size=0.33, random_state=SEED, shuffle=True)
 
-    for fold_idx,(train_idx, test_idx) in enumerate(cv.split(X[0], y_raw)):
-        X_train, y_train, X_test, y_test = (X[0][train_idx], X[1][train_idx], X[2][train_idx]), y[train_idx], (
-            X[0][test_idx], X[1][test_idx], X[2][test_idx]), y[test_idx]
+    X_train, y_train, X_test, y_test = (X[0][train_idx], X[1][train_idx], X[2][train_idx]), y[train_idx], (
+        X[0][test_idx], X[1][test_idx], X[2][test_idx]), y[test_idx]
 
-        model = create_model()
-        model.compile(
-            optimizer=tf.keras.optimizers.Adam(lr=params["lr"]),
-            loss=tf.keras.losses.CategoricalCrossentropy(),
-            metrics=tf.keras.metrics.CategoricalAccuracy(),
-        )
+    model = create_model()
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(lr=params["lr"]),
+        loss=tf.keras.losses.CategoricalCrossentropy(),
+        metrics=tf.keras.metrics.CategoricalAccuracy(),
+    )
 
-        callbacks = [
-            tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5)
-        ]
+    callbacks = [
+        tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5),
+        ff.keras.callbacks.ModelCheckpoint(os.path.join(model_dir, "weights.h5"),
+                                          monitor='val_loss',
+                                          verbose=1,
+                                          save_best_only=True,
+                                          save_weights_only=True,
+                                          mode='min')
+    ]
 
-        model.fit([X_train, y_train], y_train,
-                  epochs=params["epochs"],
-                  batch_size=params["batch_size"],
-                  validation_data=([X_test, y_test], y_test),
-                  callbacks=callbacks)
+    model.fit([X_train, y_train], y_train,
+              epochs=params["epochs"],
+              batch_size=params["batch_size"],
+              validation_data=([X_test, y_test], y_test),
+              callbacks=callbacks)
 
-        model.save_weights(os.path.join(model_dir,"fold_%s"%fold_idx, "weights.h5"), overwrite=True, save_format="h5")
+    model.save_weights(os.path.join(model_dir,"weights.h5"), overwrite=True, save_format="h5")
 
 
 if __name__ == "__main__":
