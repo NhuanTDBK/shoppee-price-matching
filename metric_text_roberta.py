@@ -117,7 +117,7 @@ def main():
 
     N_FOLDS = 5
     cv = StratifiedKFold(N_FOLDS,random_state=SEED, shuffle=True)
-    for fold_idx, (train_idx, test_idx) in cv.split(X[0], y_raw):
+    for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X[0], y_raw)):
 
         print("Train size: %s, Valid size: %s"%(len(train_idx), len(test_idx)))
         X_train, y_train, X_test, y_test = (X[0][train_idx], X[1][train_idx], X[2][train_idx]), y[train_idx], (
