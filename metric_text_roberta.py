@@ -115,37 +115,38 @@ def main():
     y_raw = np.array(LabelEncoder().fit_transform(dat["label_group"].tolist()))
     y = tf.keras.utils.to_categorical(y_raw, num_classes=N_CLASSES)
 
-    train_idx, test_idx, _,_ = train_test_split(np.arange(len(X[0])), y_raw,test_size=0.33, random_state=SEED, shuffle=True)
+    N_FOLDS = 5
+    cv = StratifiedKFold(N_FOLDS,random_state=SEED, shuffle=True)
+    for fold_idx, (train_idx, test_idx) in cv.split(X[0], y):
 
-    print("Train size: %s, Valid size: %s"%(len(train_idx), len(test_idx)))
+        print("Train size: %s, Valid size: %s"%(len(train_idx), len(test_idx)))
+        X_train, y_train, X_test, y_test = (X[0][train_idx], X[1][train_idx], X[2][train_idx]), y[train_idx], (
+            X[0][test_idx], X[1][test_idx], X[2][test_idx]), y[test_idx]
 
-    X_train, y_train, X_test, y_test = (X[0][train_idx], X[1][train_idx], X[2][train_idx]), y[train_idx], (
-        X[0][test_idx], X[1][test_idx], X[2][test_idx]), y[test_idx]
+        model = create_model()
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(lr=params["lr"]),
+            loss=tf.keras.losses.CategoricalCrossentropy(),
+            metrics=tf.keras.metrics.CategoricalAccuracy(),
+        )
 
-    model = create_model()
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(lr=params["lr"]),
-        loss=tf.keras.losses.CategoricalCrossentropy(),
-        metrics=tf.keras.metrics.CategoricalAccuracy(),
-    )
+        callbacks = [
+            tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5,),
+            tf.keras.callbacks.ModelCheckpoint(os.path.join(model_dir,"weights.h5"),
+                                              monitor='val_loss',
+                                              verbose=1,
+                                              save_best_only=True,
+                                              save_weights_only=True,
+                                              mode='min')
+        ]
 
-    callbacks = [
-        tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5,),
-        tf.keras.callbacks.ModelCheckpoint(os.path.join(model_dir,"weights.h5"),
-                                          monitor='val_loss',
-                                          verbose=1,
-                                          save_best_only=True,
-                                          save_weights_only=True,
-                                          mode='min')
-    ]
+        model.fit([X_train, y_train], y_train,
+                  epochs=params["epochs"],
+                  batch_size=params["batch_size"],
+                  validation_data=([X_test, y_test], y_test),
+                  callbacks=callbacks)
 
-    model.fit([X_train, y_train], y_train,
-              epochs=params["epochs"],
-              batch_size=params["batch_size"],
-              validation_data=([X_test, y_test], y_test),
-              callbacks=callbacks)
-
-    model.save_weights(os.path.join(model_dir,"weights.h5"), overwrite=True, save_format="tf")
+        model.save_weights(os.path.join(model_dir,"fold_%s_weights.h5"%fold_idx), overwrite=True, save_format="tf")
 
 
 if __name__ == "__main__":
