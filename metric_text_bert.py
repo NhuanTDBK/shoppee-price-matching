@@ -118,6 +118,8 @@ def main():
     cv = StratifiedKFold(3, random_state=SEED, shuffle=True)
     train_idx, test_idx, _,_ = train_test_split(np.arange(len(X[0])), y_raw,test_size=0.33, random_state=SEED, shuffle=True)
 
+    print("Train size: %s, Valid size: %s"%(len(train_idx), len(test_idx)))
+
     X_train, y_train, X_test, y_test = (X[0][train_idx], X[1][train_idx], X[2][train_idx]), y[train_idx], (
         X[0][test_idx], X[1][test_idx], X[2][test_idx]), y[test_idx]
 
