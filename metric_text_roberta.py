@@ -131,11 +131,11 @@ def main():
 
     callbacks = [
         tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5,),
-        tf.keras.callbacks.ModelCheckpoint(model_dir,
+        tf.keras.callbacks.ModelCheckpoint(os.path.join(model_dir,"weights.h5"),
                                           monitor='val_loss',
                                           verbose=1,
                                           save_best_only=True,
-                                          save_weights_only=True,
+                                          save_weights_only=False,
                                           mode='min')
     ]
 
