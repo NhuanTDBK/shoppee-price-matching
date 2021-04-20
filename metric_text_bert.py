@@ -115,7 +115,7 @@ def main():
     y_raw = np.array(LabelEncoder().fit_transform(dat["label_group"].tolist()))
     y = tf.keras.utils.to_categorical(y_raw, num_classes=N_CLASSES)
 
-    cv = StratifiedKFold(5, random_state=SEED, shuffle=True)
+    cv = StratifiedKFold(3, random_state=SEED, shuffle=True)
 
     for fold_idx,(train_idx, test_idx) in enumerate(cv.split(X[0], y_raw)):
         X_train, y_train, X_test, y_test = (X[0][train_idx], X[1][train_idx], X[2][train_idx]), y[train_idx], (

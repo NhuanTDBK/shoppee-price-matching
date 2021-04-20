@@ -17,7 +17,7 @@ class CosineSimilarity(layers.Layer):
     def build(self, input_shape):
         input_dim = input_shape[-1]
         self.W = self.add_weight(shape=(input_dim, self.num_classes),
-                                 initializer='random_normal',
+                                 initializer='glorot_uniform',
                                  trainable=True)
 
     def call(self, inputs, **kwargs):
@@ -27,37 +27,39 @@ class CosineSimilarity(layers.Layer):
         return cos
 
     def compute_output_shape(self, input_shape):
-        return (None, self.num_classes)
+        return None, self.num_classes
 
 
-# class ArcFace(layers.Layer):
-#     """
-#     Implementation of https://arxiv.org/pdf/1801.07698.pdf
-#     """
-#
-#     def __init__(self, num_classes, margin=0.5, scale=64, **kwargs):
-#         super().__init__(**kwargs)
-#         self.num_classes = num_classes
-#         self.margin = margin
-#         self.scale = scale
-#
-#         self.cos_similarity = CosineSimilarity(num_classes)
-#
-#     def call(self, inputs, training):
-#         # If not training (prediction), labels are ignored
-#         feature, labels = inputs
-#         cos = self.cos_similarity(feature)
-#
-#         if training:
-#             theta = tf.acos(tf.clip_by_value(cos, -1, 1))
-#             cos_add = tf.cos(theta + self.margin)
-#
-#             mask = tf.cast(labels, dtype=cos_add.dtype)
-#             logits = mask * cos_add + (1 - mask) * cos
-#             logits *= self.scale
-#             return logits
-#         else:
-#             return cos
+class ArcFace(layers.Layer):
+    """
+    Implementation of https://arxiv.org/pdf/1801.07698.pdf
+    """
+
+    def __init__(self, num_classes, margin=0.5, scale=30, **kwargs):
+        super().__init__(**kwargs)
+        self.num_classes = num_classes
+        self.margin = margin
+        self.scale = scale
+        self.cos_similarity = CosineSimilarity(num_classes)
+
+    def call(self, inputs, training):
+        # If not training (prediction), labels are ignored
+        feature, labels = inputs
+        cos = self.cos_similarity(feature)
+
+        if training:
+            theta = tf.acos(K.clip(cos, -1.0 + K.epsilon(), 1.0 - K.epsilon()))
+            tf.summary.histogram("angles",theta)
+
+            cos_add = tf.cos(theta + self.margin)
+            mask = tf.cast(labels, dtype=cos_add.dtype)
+            output = mask * cos_add + (1 - mask) * cos
+            output = output * self.scale
+
+            tf.summary.histogram("logits", output)
+            return output
+        else:
+            return cos
 
 
 class AdaCos(layers.Layer):
@@ -221,48 +223,3 @@ class CircleLossCL(layers.Layer):
 
     def compute_output_shape(self, input_shape):
         return (None, self.num_classes)
-
-
-class ArcFace(layers.Layer):
-    def __init__(self, num_classes=10, scale=30.0, margin=0.50, **kwargs):
-        super(ArcFace, self).__init__(**kwargs)
-        self.num_classes = num_classes
-        self.scale = scale
-        self.margin = margin
-
-    def build(self, input_shape):
-        self.W = self.add_weight(name='W',
-                                 shape=(input_shape[0][-1], self.num_classes),
-                                 initializer='glorot_uniform',
-                                 trainable=True)
-
-    def call(self, inputs: object) -> object:
-        # get embeddings and one hot labels from inputs
-        embeddings, onehot_labels = inputs
-        # normalize final W layer
-        W = tf.nn.l2_normalize(self.W, axis=0)
-        # get logits from multiplying embeddings (batch_size, embedding_size) and W (embedding_size, num_classes)
-        logits = tf.matmul(embeddings, W)
-        # clip logits to prevent zero division when backward
-        theta = tf.acos(K.clip(logits, -1.0 + K.epsilon(), 1.0 - K.epsilon()))
-        # subtract margin from logits
-        target_logits = tf.cos(theta + self.margin)
-        # get cross entropy
-        onehot_labels = tf.cast(onehot_labels, dtype=tf.float32)
-        logits = tf.add(tf.multiply(logits,(1 - onehot_labels)),tf.multiply(target_logits,onehot_labels))
-        # apply scaling
-        logits = logits * self.scale
-        # get class probability distribution
-        # predictions = tf.nn.softmax(logits)
-        return logits
-
-    def compute_output_shape(self, input_shape):
-        return None, self.num_classes
-
-    def get_config(self):
-        config = super().get_config().copy()
-        config.update({
-            "num_classes": self.num_classes,
-            "scale": self.scale,
-            "margin": self.margin})
-        return config
