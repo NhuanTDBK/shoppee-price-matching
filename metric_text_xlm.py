@@ -29,7 +29,7 @@ def seed_everything(seed):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--max_len", type=int, default=70)
-    parser.add_argument("--model_name", type=str, default='roberta-base')
+    parser.add_argument("--model_name", type=str, default='xlm-roberta-base')
     parser.add_argument("--epochs", type=int, default=25)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--margin", type=float, default=0.5)
@@ -49,7 +49,7 @@ def parse_args():
 params = parse_args()
 
 N_CLASSES = 11014
-config = transformers.RobertaConfig.from_pretrained(params["model_name"])
+config = transformers.XLMRobertaConfig.from_pretrained(params["model_name"])
 config.output_hidden_states = True
 
 saved_path = "/content/drive/MyDrive/shopee-price"
@@ -58,7 +58,7 @@ os.makedirs(model_dir, exist_ok=True)
 
 
 def encoder(titles: Union[str]):
-    tokenizer = transformers.RobertaTokenizer.from_pretrained(params["model_name"])
+    tokenizer = transformers.XLMRobertaTokenizer.from_pretrained(params["model_name"])
     ct = len(titles)
 
     input_ids = np.ones((ct, params["max_len"]), dtype='int32')
@@ -82,7 +82,7 @@ def encoder(titles: Union[str]):
 
 
 def create_model():
-    word_model = transformers.TFRobertaModel.from_pretrained(params["model_name"], config=config)
+    word_model = transformers.TFXLMRobertaModel.from_pretrained(params["model_name"], config=config)
 
     ids = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
     att = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
