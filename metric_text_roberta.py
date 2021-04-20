@@ -135,7 +135,7 @@ def main():
                                           monitor='val_loss',
                                           verbose=1,
                                           save_best_only=True,
-                                          save_weights_only=False,
+                                          save_weights_only=True,
                                           mode='min')
     ]
 
