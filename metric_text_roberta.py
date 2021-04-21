@@ -139,7 +139,6 @@ def main():
                                                save_weights_only=True,
                                                mode='min'),
             EarlyStoppingByLossVal(monitor="categorical_accuracy", value=0.94)
-
         ]
 
         model.fit([X_train, y_train], y_train,
@@ -148,7 +147,7 @@ def main():
                   validation_data=([X_test, y_test], y_test),
                   callbacks=callbacks)
 
-        model.save_weights(os.path.join(model_dir, "fold_%s_weights" % fold_idx))
+        model.save_weights(os.path.join(model_dir, "fold_"+str(fold_idx)),save_format="h5",overwrite=True)
 
 
 if __name__ == "__main__":
