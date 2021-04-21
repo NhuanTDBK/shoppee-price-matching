@@ -110,7 +110,8 @@ def main():
     dat = pd.read_csv("train.csv")
 
     dat["title"] = dat["title"].map(lambda d: convert_unicode(d.lower()))
-    X = encoder(dat["title"].tolist())
+    X_title = dat["title"].to_numpy()
+    X = encoder(X_title)
 
     y_raw = np.array(LabelEncoder().fit_transform(dat["label_group"].tolist()))
     y = tf.keras.utils.to_categorical(y_raw, num_classes=N_CLASSES)
@@ -138,7 +139,7 @@ def main():
                                                save_best_only=True,
                                                save_weights_only=True,
                                                mode='min'),
-            EarlyStoppingByLossVal(monitor="categorical_accuracy", value=0.94)
+            EarlyStoppingByLossVal(monitor="categorical_accuracy", value=0.91)
         ]
 
         model.fit([X_train, y_train], y_train,
@@ -148,6 +149,13 @@ def main():
                   callbacks=callbacks)
 
         model.save_weights(os.path.join(model_dir, "fold_"+str(fold_idx)),save_format="h5",overwrite=True)
+
+        del model
+
+        print("Reload model")
+        model = create_model()
+        model.load_weights(os.path.join(model_dir, "fold_"+str(fold_idx)))
+        print(model.predict(encoder(X_title[:10])))
 
 
 if __name__ == "__main__":

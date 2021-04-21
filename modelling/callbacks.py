@@ -13,7 +13,7 @@ class EarlyStoppingByLossVal(tf.keras.callbacks.Callback):
         # if current is None:
         #     warnings.warn("Early stopping requires %s available!" % self.monitor, RuntimeWarning)
 
-        if current < self.value:
+        if current > self.value:
             if self.verbose > 0:
                 print("Epoch %05d: early stopping THR" % epoch)
             self.model.stop_training = True
