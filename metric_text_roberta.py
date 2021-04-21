@@ -151,12 +151,12 @@ def main():
 
         emb_model.save_weights(os.path.join(model_dir, "fold_"+str(fold_idx)),save_format="h5",overwrite=True)
 
-        del model, emb_model
-
-        print("Reload model")
-        _, emb_model = create_model()
-        emb_model.load_weights(os.path.join(model_dir, "fold_"+str(fold_idx)))
-        print(emb_model.predict(encoder(X_title[:10])))
+        # del model, emb_model
+        #
+        # print("Reload model")
+        # _, emb_model = create_model()
+        # emb_model.load_weights(os.path.join(model_dir, "fold_"+str(fold_idx)))
+        # print(emb_model.predict(encoder(X_title[:10])))
 
 
 if __name__ == "__main__":
