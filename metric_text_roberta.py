@@ -99,10 +99,11 @@ def create_model():
     x1 = TextProductMatch(N_CLASSES, metric=params["metric"])([x1, labels_onehot])
 
     model = tf.keras.Model(inputs=[[ids, att, tok], labels_onehot], outputs=[x1])
+    emb_model = tf.keras.Model(inputs=[[ids,att, tok]], outputs=[x1])
 
     model.summary()
 
-    return model
+    return model, emb_model
 
 
 def main():
@@ -123,7 +124,7 @@ def main():
         X_train, y_train, X_test, y_test = (X[0][train_idx], X[1][train_idx], X[2][train_idx]), y[train_idx], (
             X[0][test_idx], X[1][test_idx], X[2][test_idx]), y[test_idx]
 
-        model = create_model()
+        model, emb_model = create_model()
         model.compile(
             optimizer=tf.keras.optimizers.Adam(lr=params["lr"]),
             loss=tf.keras.losses.CategoricalCrossentropy(),
@@ -148,14 +149,14 @@ def main():
                   validation_data=([X_test, y_test], y_test),
                   callbacks=callbacks)
 
-        model.save_weights(os.path.join(model_dir, "fold_"+str(fold_idx)),save_format="h5",overwrite=True)
+        emb_model.save_weights(os.path.join(model_dir, "fold_"+str(fold_idx)),save_format="h5",overwrite=True)
 
-        del model
+        del model, emb_model
 
         print("Reload model")
-        model = create_model()
-        model.load_weights(os.path.join(model_dir, "fold_"+str(fold_idx)))
-        print(model.predict(encoder(X_title[:10])))
+        _, emb_model = create_model()
+        emb_model.load_weights(os.path.join(model_dir, "fold_"+str(fold_idx)))
+        print(emb_model.predict(encoder(X_title[:10])))
 
 
 if __name__ == "__main__":
