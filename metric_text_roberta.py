@@ -91,15 +91,15 @@ def create_model():
     labels_onehot = tf.keras.layers.Input(shape=N_CLASSES, dtype=tf.int32)
 
     x = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
-    x1 = BertLastHiddenState(last_hidden_states=params["last_hidden_states"],
+    x_pool = BertLastHiddenState(last_hidden_states=params["last_hidden_states"],
                              mode=params["pool"],
                              fc_dim=params["fc_dim"],
                              multi_sample_dropout=params["multi_dropout"])(x)
 
-    x1 = TextProductMatch(N_CLASSES, metric=params["metric"])([x1, labels_onehot])
+    x1 = TextProductMatch(N_CLASSES, metric=params["metric"])([x_pool, labels_onehot])
 
     model = tf.keras.Model(inputs=[[ids, att, tok], labels_onehot], outputs=[x1])
-    emb_model = tf.keras.Model(inputs=[[ids,att, tok]], outputs=[x1])
+    emb_model = tf.keras.Model(inputs=[[ids,att, tok]], outputs=[x_pool])
 
     model.summary()
 
