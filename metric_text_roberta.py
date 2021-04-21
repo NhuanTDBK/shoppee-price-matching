@@ -53,7 +53,7 @@ config = transformers.RobertaConfig.from_pretrained(params["model_name"])
 config.output_hidden_states = True
 
 saved_path = "/content/drive/MyDrive/shopee-price"
-model_dir = os.path.join(saved_path, "saved", params["model_name"])
+model_dir = os.path.join(saved_path, "saved", params["model_name"],params["metric"])
 os.makedirs(model_dir, exist_ok=True)
 
 
@@ -107,6 +107,8 @@ def create_model():
 
 
 def main():
+    seed_everything(SEED)
+
     print("Loading data")
     dat = pd.read_csv("train.csv")
 
