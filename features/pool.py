@@ -23,8 +23,8 @@ class PoolingStrategy(Enum):
 
 
 class BertLastHiddenState(tf.keras.layers.Layer):
-    def __init__(self, last_hidden_states=3, mode=PoolingStrategy.REDUCE_MEAN_MAX, fc_dim=None,
-                 multi_sample_dropout=False):
+    def __init__(self, last_hidden_states=3, mode=PoolingStrategy.REDUCE_MEAN_MAX, fc_dim=512,
+                 multi_sample_dropout=True):
         super(BertLastHiddenState, self).__init__()
 
         self.last_hidden_states = last_hidden_states
@@ -33,11 +33,13 @@ class BertLastHiddenState(tf.keras.layers.Layer):
 
         self.fc = None
         if fc_dim:
-            self.fc = tf.keras.models.Sequential(tf.keras.layers.Dense(self.fc_dim, activation="relu"))
+            self.fc = tf.keras.models.Sequential(tf.keras.layers.Dense(self.fc_dim))
         self.multi_sample_dropout = multi_sample_dropout
 
     def call(self, inputs):
         x = inputs
+
+        x_pool = None
 
         x1 = tf.concat([x[-i - 1] for i in range(self.last_hidden_states)], axis=-1)
         if self.mode == PoolingStrategy.REDUCE_MEAN_MAX:

@@ -7,11 +7,11 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import transformers
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
-from transformers import BertTokenizer, TFBertModel
 
 from features.pool import BertLastHiddenState, PoolingStrategy
+from modelling.callbacks import EarlyStoppingByLossVal
 from modelling.models import TextProductMatch
 from text.extractor import convert_unicode
 
@@ -34,10 +34,10 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--margin", type=float, default=0.5)
     parser.add_argument("--s", type=float, default=30)
-    parser.add_argument("--pool", type=str, default=PoolingStrategy.REDUCE_MEAN)
+    parser.add_argument("--pool", type=str, default=PoolingStrategy.REDUCE_MEAN_MAX)
     parser.add_argument("--multi_dropout", type=bool, default=True)
     parser.add_argument("--last_hidden_states", type=int, default=3)
-    parser.add_argument("--fc_dim", type=int, default=None)
+    parser.add_argument("--fc_dim", type=int, default=512)
     parser.add_argument("--lr", type=float, default=0.00001)
     parser.add_argument("--metric", type=str, default="adacos")
 
@@ -96,7 +96,7 @@ def create_model():
                              fc_dim=params["fc_dim"],
                              multi_sample_dropout=params["multi_dropout"])(x)
 
-    x1 = TextProductMatch(N_CLASSES,metric=params["metric"])([x1, labels_onehot])
+    x1 = TextProductMatch(N_CLASSES, metric=params["metric"])([x1, labels_onehot])
 
     model = tf.keras.Model(inputs=[[ids, att, tok], labels_onehot], outputs=[x1])
 
@@ -115,12 +115,10 @@ def main():
     y_raw = np.array(LabelEncoder().fit_transform(dat["label_group"].tolist()))
     y = tf.keras.utils.to_categorical(y_raw, num_classes=N_CLASSES)
 
-
     N_FOLDS = 5
-    cv = StratifiedKFold(N_FOLDS,random_state=SEED, shuffle=True)
+    cv = StratifiedKFold(N_FOLDS, random_state=SEED, shuffle=True)
     for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X[0], y_raw)):
-
-        print("Train size: %s, Valid size: %s"%(len(train_idx), len(test_idx)))
+        print("Train size: %s, Valid size: %s" % (len(train_idx), len(test_idx)))
         X_train, y_train, X_test, y_test = (X[0][train_idx], X[1][train_idx], X[2][train_idx]), y[train_idx], (
             X[0][test_idx], X[1][test_idx], X[2][test_idx]), y[test_idx]
 
@@ -132,13 +130,15 @@ def main():
         )
 
         callbacks = [
-            tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5,),
-            tf.keras.callbacks.ModelCheckpoint(os.path.join(model_dir,"weights.h5"),
-                                              monitor='val_loss',
-                                              verbose=1,
-                                              save_best_only=True,
-                                              save_weights_only=True,
-                                              mode='min')
+            tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5, ),
+            tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=2, restore_best_weights=True),
+            tf.keras.callbacks.ModelCheckpoint(os.path.join(model_dir, "weights.h5"),
+                                               monitor='val_loss',
+                                               verbose=1,
+                                               save_best_only=True,
+                                               save_weights_only=True,
+                                               mode='min'),
+            EarlyStoppingByLossVal(monitor="categorical_accuracy", value=0.94)
 
         ]
 
@@ -148,7 +148,7 @@ def main():
                   validation_data=([X_test, y_test], y_test),
                   callbacks=callbacks)
 
-        model.save_weights(os.path.join(model_dir,"fold_%s_weights"%fold_idx), overwrite=True, save_format="tf")
+        model.save_weights(os.path.join(model_dir, "fold_%s_weights" % fold_idx))
 
 
 if __name__ == "__main__":

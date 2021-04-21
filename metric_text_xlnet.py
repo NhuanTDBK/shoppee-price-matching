@@ -7,12 +7,12 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import transformers
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
-from transformers import BertTokenizer, TFBertModel
 
 from features.pool import BertLastHiddenState, PoolingStrategy
 from modelling.models import TextProductMatch
+from modelling.callbacks import EarlyStoppingByLossVal
 from text.extractor import convert_unicode
 
 SEED = 4111
@@ -132,12 +132,14 @@ def main():
 
         callbacks = [
             tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5,),
+            tf.keras.callbacks.EarlyStopping(monitor='val_loss',patience=2,restore_best_weights=True),
             tf.keras.callbacks.ModelCheckpoint(os.path.join(model_dir,"weights.h5"),
                                               monitor='val_loss',
                                               verbose=1,
                                               save_best_only=True,
                                               save_weights_only=True,
-                                              mode='min')
+                                              mode='min'),
+            EarlyStoppingByLossVal(monitor="categorical_accuracy",value=0.94)
 
         ]
 
@@ -148,6 +150,7 @@ def main():
                   callbacks=callbacks)
 
         model.save_weights(os.path.join(model_dir,"fold_%s_weights"%fold_idx), overwrite=True, save_format="tf")
+
 
 
 if __name__ == "__main__":
