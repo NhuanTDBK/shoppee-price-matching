@@ -16,7 +16,7 @@ from modelling.models import TextProductMatch
 from text.extractor import convert_unicode
 
 SEED = 4111
-
+N_FOLDS = 5
 
 # Function to seed everything
 def seed_everything(seed):

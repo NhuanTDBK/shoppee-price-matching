@@ -49,6 +49,8 @@ def parse_args():
 params = parse_args()
 
 N_CLASSES = 11014
+N_FOLDS = 5
+
 config = transformers.RobertaConfig.from_pretrained(params["model_name"])
 config.output_hidden_states = True
 
@@ -119,7 +121,7 @@ def main():
     y_raw = np.array(LabelEncoder().fit_transform(dat["label_group"].tolist()))
     y = tf.keras.utils.to_categorical(y_raw, num_classes=N_CLASSES)
 
-    N_FOLDS = 5
+
     cv = StratifiedKFold(N_FOLDS, random_state=SEED, shuffle=True)
     for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X[0], y_raw)):
         print("Train size: %s, Valid size: %s" % (len(train_idx), len(test_idx)))

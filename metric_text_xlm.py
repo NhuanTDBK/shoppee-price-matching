@@ -16,6 +16,7 @@ from modelling.models import TextProductMatch
 from text.extractor import convert_unicode
 
 SEED = 4111
+N_FOLDS = 5
 
 
 # Function to seed everything
@@ -53,7 +54,7 @@ config = transformers.XLMRobertaConfig.from_pretrained(params["model_name"])
 config.output_hidden_states = True
 
 saved_path = "/content/drive/MyDrive/shopee-price"
-model_dir = os.path.join(saved_path, "saved", params["model_name"],params["metric"])
+model_dir = os.path.join(saved_path, "saved", params["model_name"], params["metric"])
 os.makedirs(model_dir, exist_ok=True)
 
 
@@ -92,14 +93,14 @@ def create_model():
 
     x = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
     x_pool = BertLastHiddenState(last_hidden_states=params["last_hidden_states"],
-                             mode=params["pool"],
-                             fc_dim=params["fc_dim"],
-                             multi_sample_dropout=params["multi_dropout"])(x)
+                                 mode=params["pool"],
+                                 fc_dim=params["fc_dim"],
+                                 multi_sample_dropout=params["multi_dropout"])(x)
 
     x1 = TextProductMatch(N_CLASSES, metric=params["metric"])([x_pool, labels_onehot])
 
     model = tf.keras.Model(inputs=[[ids, att, tok], labels_onehot], outputs=[x1])
-    emb_model = tf.keras.Model(inputs=[[ids,att, tok]], outputs=[x_pool])
+    emb_model = tf.keras.Model(inputs=[[ids, att, tok]], outputs=[x_pool])
 
     model.summary()
 
@@ -119,7 +120,6 @@ def main():
     y_raw = np.array(LabelEncoder().fit_transform(dat["label_group"].tolist()))
     y = tf.keras.utils.to_categorical(y_raw, num_classes=N_CLASSES)
 
-    N_FOLDS = 5
     cv = StratifiedKFold(N_FOLDS, random_state=SEED, shuffle=True)
     for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X[0], y_raw)):
         print("Train size: %s, Valid size: %s" % (len(train_idx), len(test_idx)))
@@ -151,7 +151,7 @@ def main():
                   validation_data=([X_test, y_test], y_test),
                   callbacks=callbacks)
 
-        emb_model.save_weights(os.path.join(model_dir, "fold_"+str(fold_idx)),save_format="h5",overwrite=True)
+        emb_model.save_weights(os.path.join(model_dir, "fold_" + str(fold_idx)), save_format="h5", overwrite=True)
 
         # del model, emb_model
         #
