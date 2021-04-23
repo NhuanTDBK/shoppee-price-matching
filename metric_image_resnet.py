@@ -56,7 +56,7 @@ os.makedirs(model_dir, exist_ok=True)
 def create_model():
     inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
     label = tf.keras.layers.Input(shape=(), name='inp2')
-    labels_onehot = tf.keras.layers.Input(shape=N_CLASSES, dtype=tf.int32)(label)
+    labels_onehot = tf.one_hot(label, depth=N_CLASSES)
 
     x = tf.keras.applications.ResNet50(include_top=False)(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
@@ -69,33 +69,33 @@ def create_model():
 
     return model
 
+
 def count_data_items(filenames):
     # The number of data items is written in the name of the .tfrec files, i.e. flowers00-230.tfrec = 230 data items
     n = [int(re.compile(r"-([0-9]*)\.").search(filename).group(1)) for filename in filenames]
     return np.sum(n)
+
 
 def main():
     seed_everything(SEED)
 
     print("Loading data")
     input_paths = params['input_path']
-    files = np.array([fpath for fpath in glob.glob(input_paths+"/*.tfrec")])
+    files = np.array([fpath for fpath in glob.glob(input_paths + "/*.tfrec")])
 
     print("Found files: ", files)
 
     N_FOLDS = 5
     cv = KFold(N_FOLDS, shuffle=True, random_state=SEED)
     for fold_idx, (train_files, valid_files) in enumerate(cv.split(files, np.arange(N_FOLDS))):
-
         ds_train = get_training_dataset(files[train_files], params["batch_size"])
         NUM_TRAINING_IMAGES = count_data_items(files[train_files])
-        print("Get ds training, %s images"%NUM_TRAINING_IMAGES)
+        print("Get ds training, %s images" % NUM_TRAINING_IMAGES)
 
         print(f'Dataset: {NUM_TRAINING_IMAGES} training images')
 
         print("Get ds validation")
         ds_val = get_validation_dataset(files[valid_files], params["batch_size"])
-
 
         model, emb_model = create_model()
 
