@@ -64,10 +64,11 @@ def create_model():
     x1 = MetricLearner(N_CLASSES, metric=params["metric"])([emb, labels_onehot])
 
     model = tf.keras.Model(inputs=[inp, labels_onehot], outputs=[x1])
-
     model.summary()
 
-    return model
+    emb_model = tf.keras.Model(inputs=inp, outputs=emb)
+
+    return model, emb_model
 
 
 def count_data_items(filenames):
@@ -98,7 +99,6 @@ def main():
         ds_val = get_validation_dataset(files[valid_files], params["batch_size"])
 
         model, emb_model = create_model()
-
         opt = tf.keras.optimizers.Adam()
 
         model.compile(
@@ -120,9 +120,11 @@ def main():
             # LRFinder(min_lr=params["lr"], max_lr=0.0001),
         ]
 
+        STEPS_PER_EPOCH = NUM_TRAINING_IMAGES // params["batch_size"]
+
         model.fit(ds_train,
                   epochs=params["epochs"],
-                  batch_size=params["batch_size"],
+                  steps_per_epoch=STEPS_PER_EPOCH,
                   validation_data=ds_val,
                   callbacks=callbacks)
 
