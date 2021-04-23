@@ -2,6 +2,7 @@ import argparse
 import os
 import glob
 import random
+import re
 
 from sklearn.model_selection import KFold
 
@@ -68,6 +69,10 @@ def create_model():
 
     return model
 
+def count_data_items(filenames):
+    # The number of data items is written in the name of the .tfrec files, i.e. flowers00-230.tfrec = 230 data items
+    n = [int(re.compile(r"-([0-9]*)\.").search(filename).group(1)) for filename in filenames]
+    return np.sum(n)
 
 def main():
     seed_everything(SEED)
@@ -81,10 +86,16 @@ def main():
     N_FOLDS = 5
     cv = KFold(N_FOLDS, shuffle=True, random_state=SEED)
     for fold_idx, (train_files, valid_files) in enumerate(cv.split(files, np.arange(N_FOLDS))):
-        print("Get ds training")
+
         ds_train = get_training_dataset(files[train_files], params["batch_size"])
+        NUM_TRAINING_IMAGES = count_data_items(train_files)
+        print("Get ds training, %s images"%NUM_TRAINING_IMAGES)
+
+        print(f'Dataset: {NUM_TRAINING_IMAGES} training images')
+
         print("Get ds validation")
         ds_val = get_validation_dataset(files[valid_files], params["batch_size"])
+
 
         model, emb_model = create_model()
 
