@@ -45,7 +45,7 @@ def parse_args():
 params = parse_args()
 
 N_CLASSES = 11014
-IMAGE_SIZE = 512
+IMAGE_SIZE = (512, 512)
 
 saved_path = "/content/drive/MyDrive/shopee-price"
 model_dir = os.path.join(saved_path, "saved", params["model_name"])

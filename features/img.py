@@ -53,7 +53,7 @@ def load_dataset(filenames, ordered=False):
     dataset = tf.data.TFRecordDataset(filenames, num_parallel_reads=AUTO)
     dataset = dataset.with_options(ignore_order)
     dataset = dataset.map(read_labeled_tfrecord, num_parallel_calls=AUTO)
-    dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
+    # dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
 
     return dataset
 
