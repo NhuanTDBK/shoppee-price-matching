@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 # from keras.callbacks import Callback
 import numpy as np
 import tensorflow as tf
+import re
+from typing import Callable, List, Optional, Union
 
 
 class LRFinder(tf.keras.callbacks.Callback):
@@ -89,31 +91,7 @@ class EarlyStoppingByLossVal(tf.keras.callbacks.Callback):
 
 
 
-# Copyright 2019 The TensorFlow Authors, The Hugging Face Team. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
-"""Functions and classes related to optimization (weight updates)."""
 
-
-import re
-from typing import Callable, List, Optional, Union
-
-import tensorflow as tf
-
-
-
-[DOCS]
 class WarmUp(tf.keras.optimizers.schedules.LearningRateSchedule):
     """
     Applies a warmup schedule on a given learning rate decay schedule.
@@ -173,8 +151,6 @@ class WarmUp(tf.keras.optimizers.schedules.LearningRateSchedule):
 
 
 
-
-[DOCS]
 def create_optimizer(
     init_lr: float,
     num_train_steps: int,
