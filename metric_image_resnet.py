@@ -1,6 +1,6 @@
 import argparse
-import os
 import glob
+import os
 import random
 import re
 
@@ -88,7 +88,7 @@ def main():
     for fold_idx, (train_files, valid_files) in enumerate(cv.split(files, np.arange(N_FOLDS))):
 
         ds_train = get_training_dataset(files[train_files], params["batch_size"])
-        NUM_TRAINING_IMAGES = count_data_items(train_files)
+        NUM_TRAINING_IMAGES = count_data_items(files[train_files])
         print("Get ds training, %s images"%NUM_TRAINING_IMAGES)
 
         print(f'Dataset: {NUM_TRAINING_IMAGES} training images')
