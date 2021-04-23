@@ -1,5 +1,6 @@
 import argparse
 import os
+import glob
 import random
 
 from sklearn.model_selection import KFold
@@ -73,7 +74,7 @@ def main():
 
     print("Loading data")
     input_paths = params['input_paths']
-    files = np.array([os.path.join(input_paths, fname) for fname in os.listdir(input_paths)])
+    files = np.array([fpath for fpath in glob.glob(input_paths+".tfrec")])
 
     N_FOLDS = 5
     cv = KFold(N_FOLDS, shuffle=True, random_state=SEED)
