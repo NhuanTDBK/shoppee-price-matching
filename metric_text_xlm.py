@@ -13,7 +13,7 @@ from sklearn.preprocessing import LabelEncoder
 
 from features.pool import BertLastHiddenState, PoolingStrategy
 from modelling.callbacks import EarlyStoppingByLossVal, LRFinder
-from modelling.models import TextProductMatch
+from modelling.metrics import MetricLearner
 from text.extractor import convert_unicode
 
 SEED = 4111
@@ -103,7 +103,7 @@ def create_model():
                                  fc_dim=params["fc_dim"],
                                  multi_sample_dropout=params["multi_dropout"])(x)
 
-    x1 = TextProductMatch(N_CLASSES, metric=params["metric"])([x_pool, labels_onehot])
+    x1 = MetricLearner(N_CLASSES, metric=params["metric"])([x_pool, labels_onehot])
 
     model = tf.keras.Model(inputs=[[ids, att, tok], labels_onehot], outputs=[x1])
     emb_model = tf.keras.Model(inputs=[[ids, att, tok]], outputs=[x_pool])
