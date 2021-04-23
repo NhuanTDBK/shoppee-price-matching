@@ -126,7 +126,7 @@ def main():
         model.fit(ds_train,
                   epochs=params["epochs"],
                   steps_per_epoch=STEPS_PER_EPOCH,
-                  validation_data=ds_val,g
+                  validation_data=ds_val,
                   callbacks=callbacks)
 
         emb_model.save_weights(os.path.join(model_dir, "fold_" + str(fold_idx)), save_format="h5", overwrite=True)
