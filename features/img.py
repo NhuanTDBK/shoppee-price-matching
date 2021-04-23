@@ -26,7 +26,7 @@ def data_augment(posting_id, image, label_group, matches):
 
 
 # Function to decode our images
-def decode_image(image_data, IMAGE_SIZE=512):
+def decode_image(image_data, IMAGE_SIZE=(512, 512)):
     image = tf.image.decode_jpeg(image_data, channels=3)
     image = tf.image.resize(image, IMAGE_SIZE)
     image = tf.cast(image, tf.float32) / 255.0
@@ -54,7 +54,6 @@ def load_dataset(filenames, ordered=False):
     dataset = dataset.with_options(ignore_order)
     dataset = dataset.map(read_labeled_tfrecord, num_parallel_calls=AUTO)
     dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
-
 
     return dataset
 
