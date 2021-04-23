@@ -6,7 +6,6 @@ from typing import Union
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-import tensorflow_addons as tfx
 import transformers
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
@@ -113,20 +112,22 @@ def create_model():
     return model, emb_model
 
 
-def create_optimizer(total_samples=None):
+def get_create_optimizer(total_samples=None):
     if not params["use_swa"]:
         return tf.keras.optimizers.Adam(learning_rate=params["lr"])
 
-    no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
-    base_opt = transformers.AdamWeightDecay(learning_rate=params["lr"],
-                                            weight_decay_rate=params["weight_decay"],
-                                            exclude_from_weight_decay=no_decay,
-                                            )
-    train_steps = (total_samples / params["batch_size"]) * params["epochs"]
-    opt = tfx.optimizers.SWA(base_opt, start_averaging=int(train_steps * params["swa_ratio"]),
-                             average_period=params["swa_freq"])
+    num_train_steps = (total_samples / params["batch_size"]) * params["epochs"]
+    base_opt, lr_schedule = transformers.create_optimizer(params["lr"],
+                                                          num_train_steps=num_train_steps,
+                                                          num_warmup_steps=int(
+                                                              num_train_steps * params["warmup_ratio"]),
+                                                          weight_decay_rate=params["weight_decay"]
+                                                          )
 
-    return opt
+    # opt = tfx.optimizers.SWA(base_opt, start_averaging=int(num_train_steps * params["swa_ratio"]),
+    #                          average_period=params["swa_freq"])
+
+    return base_opt, lr_schedule
 
 
 def main():
@@ -151,7 +152,7 @@ def main():
 
         model, emb_model = create_model()
 
-        opt = create_optimizer(total_samples=len(train_idx))
+        opt, _ = get_create_optimizer(total_samples=len(train_idx))
 
         model.compile(
             optimizer=opt,
@@ -169,7 +170,7 @@ def main():
                                                save_weights_only=True,
                                                mode='min'),
             EarlyStoppingByLossVal(monitor="categorical_accuracy", value=0.91),
-            LRFinder(min_lr=params["lr"],max_lr=0.0001),
+            LRFinder(min_lr=params["lr"], max_lr=0.0001),
         ]
 
         model.fit([X_train, y_train], y_train,

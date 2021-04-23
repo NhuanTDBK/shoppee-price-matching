@@ -14,7 +14,7 @@ from sklearn.preprocessing import LabelEncoder
 from features.pool import BertLastHiddenState, PoolingStrategy
 from modelling.callbacks import EarlyStoppingByLossVal, LRFinder
 from modelling.models import TextProductMatch
-from modelling.optim import create_optimizer
+# from modelling.optim import create_optimizer
 from text.extractor import convert_unicode
 
 SEED = 4111
@@ -44,8 +44,6 @@ def parse_args():
     parser.add_argument("--metric", type=str, default="adacos")
     parser.add_argument("--weight_decay", type=float, default=0.001)
     parser.add_argument("--use_swa", type=bool, default=True)
-    parser.add_argument("--swa_ratio", type=float, default=0.9)
-    parser.add_argument("--swa_freq", type=float, default=30)
     parser.add_argument("--warmup_ratio", type=float, default=0.25)
 
     args = parser.parse_args()
@@ -120,16 +118,16 @@ def get_create_optimizer(total_samples=None):
         return tf.keras.optimizers.Adam(learning_rate=params["lr"])
 
     num_train_steps = (total_samples / params["batch_size"]) * params["epochs"]
-    base_opt = create_optimizer(params["lr"],
+    base_opt, lr_schedule = transformers.create_optimizer(params["lr"],
                                 num_train_steps=num_train_steps,
                                 num_warmup_steps=int(num_train_steps * params["warmup_ratio"]),
                                 weight_decay_rate=params["weight_decay"]
                                 )
 
-    opt = tfx.optimizers.SWA(base_opt, start_averaging=int(num_train_steps * params["swa_ratio"]),
-                             average_period=params["swa_freq"])
+    # opt = tfx.optimizers.SWA(base_opt, start_averaging=int(num_train_steps * params["swa_ratio"]),
+    #                          average_period=params["swa_freq"])
 
-    return opt
+    return base_opt, lr_schedule
 
 
 def main():
@@ -154,7 +152,7 @@ def main():
 
         model, emb_model = create_model()
 
-        opt = get_create_optimizer(total_samples=len(train_idx))
+        opt, lr_schedule = get_create_optimizer(total_samples=len(train_idx))
 
         model.compile(
             optimizer=opt,
@@ -182,7 +180,7 @@ def main():
                   callbacks=callbacks)
 
         emb_model.save_weights(os.path.join(model_dir, "fold_" + str(fold_idx)), save_format="h5", overwrite=True)
-
+        os.remove(os.path.join(model_dir, "weights.h5"))
 
 if __name__ == "__main__":
     main()
