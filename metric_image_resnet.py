@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument("--fc_dim", type=int, default=None)
     parser.add_argument("--lr", type=float, default=0.00001)
     parser.add_argument("--metric", type=str, default="adacos")
-    parser.add_argument("--input_paths", type=str)
+    parser.add_argument("--input_path", type=str)
 
     args = parser.parse_args()
     params = vars(args)
@@ -78,7 +78,7 @@ def main():
 
     N_FOLDS = 5
     cv = KFold(N_FOLDS, shuffle=True, random_state=SEED)
-    for fold_idx, (train_files, valid_files) in cv.split(files, np.arange(N_FOLDS)):
+    for fold_idx, (train_files, valid_files) in enumerate(cv.split(files, np.arange(N_FOLDS))):
         ds_train = get_training_dataset(files[train_files], params["batch_size"])
         ds_val = get_validation_dataset(files[valid_files], params["batch_size"])
 
