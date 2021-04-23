@@ -5,4 +5,3 @@ tensorflow-probability
 transformers
 pydot
 graphviz
-tensorflow-addons
