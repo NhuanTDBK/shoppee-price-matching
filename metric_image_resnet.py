@@ -73,13 +73,17 @@ def main():
     seed_everything(SEED)
 
     print("Loading data")
-    input_paths = params['input_paths']
+    input_paths = params['input_path']
     files = np.array([fpath for fpath in glob.glob(input_paths+"/*.tfrec")])
+
+    print("Found files: ", files)
 
     N_FOLDS = 5
     cv = KFold(N_FOLDS, shuffle=True, random_state=SEED)
     for fold_idx, (train_files, valid_files) in enumerate(cv.split(files, np.arange(N_FOLDS))):
+        print("Get ds training")
         ds_train = get_training_dataset(files[train_files], params["batch_size"])
+        print("Get ds validation")
         ds_val = get_validation_dataset(files[valid_files], params["batch_size"])
 
         model, emb_model = create_model()
