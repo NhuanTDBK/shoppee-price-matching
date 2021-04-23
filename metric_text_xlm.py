@@ -6,17 +6,17 @@ from typing import Union
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+import tensorflow_addons as tfx
 import transformers
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
 
 from features.pool import BertLastHiddenState, PoolingStrategy
-from modelling.callbacks import EarlyStoppingByLossVal
+from modelling.callbacks import EarlyStoppingByLossVal, LRFinder
 from modelling.models import TextProductMatch
 from text.extractor import convert_unicode
 
 SEED = 4111
-N_FOLDS = 5
 
 
 # Function to seed everything
@@ -30,7 +30,7 @@ def seed_everything(seed):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--max_len", type=int, default=70)
-    parser.add_argument("--model_name", type=str, default='roberta-base')
+    parser.add_argument("--model_name", type=str, default='jplu/tf-xlm-roberta-base')
     parser.add_argument("--epochs", type=int, default=25)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--margin", type=float, default=0.5)
@@ -41,6 +41,10 @@ def parse_args():
     parser.add_argument("--fc_dim", type=int, default=512)
     parser.add_argument("--lr", type=float, default=0.00001)
     parser.add_argument("--metric", type=str, default="adacos")
+    parser.add_argument("--weight_decay", type=float, default=0.001)
+    parser.add_argument("--use_swa", type=bool, default=True)
+    parser.add_argument("--swa_ratio", type=float, default=0.9)
+    parser.add_argument("--swa_freq", type=float, default=30)
 
     args = parser.parse_args()
     params = vars(args)
@@ -50,6 +54,8 @@ def parse_args():
 params = parse_args()
 
 N_CLASSES = 11014
+N_FOLDS = 5
+
 config = transformers.XLMRobertaConfig.from_pretrained(params["model_name"])
 config.output_hidden_states = True
 
@@ -107,6 +113,22 @@ def create_model():
     return model, emb_model
 
 
+def create_optimizer(total_samples=None):
+    if not params["use_swa"]:
+        return tf.keras.optimizers.Adam(learning_rate=params["lr"])
+
+    no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
+    base_opt = transformers.AdamWeightDecay(learning_rate=params["lr"],
+                                            weight_decay_rate=params["weight_decay"],
+                                            exclude_from_weight_decay=no_decay,
+                                            )
+    train_steps = (total_samples / params["batch_size"]) * params["epochs"]
+    opt = tfx.optimizers.SWA(base_opt, start_averaging=int(train_steps * params["swa_ratio"]),
+                             average_period=params["swa_freq"])
+
+    return opt
+
+
 def main():
     seed_everything(SEED)
 
@@ -121,14 +143,18 @@ def main():
     y = tf.keras.utils.to_categorical(y_raw, num_classes=N_CLASSES)
 
     cv = StratifiedKFold(N_FOLDS, random_state=SEED, shuffle=True)
+
     for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X[0], y_raw)):
         print("Train size: %s, Valid size: %s" % (len(train_idx), len(test_idx)))
         X_train, y_train, X_test, y_test = (X[0][train_idx], X[1][train_idx], X[2][train_idx]), y[train_idx], (
             X[0][test_idx], X[1][test_idx], X[2][test_idx]), y[test_idx]
 
         model, emb_model = create_model()
+
+        opt = create_optimizer(total_samples=len(train_idx))
+
         model.compile(
-            optimizer=tf.keras.optimizers.Adam(lr=params["lr"]),
+            optimizer=opt,
             loss=tf.keras.losses.CategoricalCrossentropy(),
             metrics=tf.keras.metrics.CategoricalAccuracy(),
         )
@@ -142,7 +168,8 @@ def main():
                                                save_best_only=True,
                                                save_weights_only=True,
                                                mode='min'),
-            EarlyStoppingByLossVal(monitor="categorical_accuracy", value=0.91)
+            EarlyStoppingByLossVal(monitor="categorical_accuracy", value=0.91),
+            LRFinder(min_lr=params["lr"],max_lr=0.0001),
         ]
 
         model.fit([X_train, y_train], y_train,
@@ -152,13 +179,6 @@ def main():
                   callbacks=callbacks)
 
         emb_model.save_weights(os.path.join(model_dir, "fold_" + str(fold_idx)), save_format="h5", overwrite=True)
-
-        # del model, emb_model
-        #
-        # print("Reload model")
-        # _, emb_model = create_model()
-        # emb_model.load_weights(os.path.join(model_dir, "fold_"+str(fold_idx)))
-        # print(emb_model.predict(encoder(X_title[:10])))
 
 
 if __name__ == "__main__":

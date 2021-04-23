@@ -6,12 +6,13 @@ from typing import Union
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+import tensorflow_addons as tfx
 import transformers
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
 
 from features.pool import BertLastHiddenState, PoolingStrategy
-from modelling.callbacks import EarlyStoppingByLossVal
+from modelling.callbacks import EarlyStoppingByLossVal, LRFinder
 from modelling.models import TextProductMatch
 from text.extractor import convert_unicode
 
@@ -40,6 +41,10 @@ def parse_args():
     parser.add_argument("--fc_dim", type=int, default=512)
     parser.add_argument("--lr", type=float, default=0.00001)
     parser.add_argument("--metric", type=str, default="adacos")
+    parser.add_argument("--weight_decay", type=float, default=0.001)
+    parser.add_argument("--use_swa", type=bool, default=True)
+    parser.add_argument("--swa_ratio", type=float, default=0.9)
+    parser.add_argument("--swa_freq", type=float, default=30)
 
     args = parser.parse_args()
     params = vars(args)
@@ -55,7 +60,7 @@ config = transformers.RobertaConfig.from_pretrained(params["model_name"])
 config.output_hidden_states = True
 
 saved_path = "/content/drive/MyDrive/shopee-price"
-model_dir = os.path.join(saved_path, "saved", params["model_name"],params["metric"])
+model_dir = os.path.join(saved_path, "saved", params["model_name"], params["metric"])
 os.makedirs(model_dir, exist_ok=True)
 
 
@@ -94,18 +99,34 @@ def create_model():
 
     x = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
     x_pool = BertLastHiddenState(last_hidden_states=params["last_hidden_states"],
-                             mode=params["pool"],
-                             fc_dim=params["fc_dim"],
-                             multi_sample_dropout=params["multi_dropout"])(x)
+                                 mode=params["pool"],
+                                 fc_dim=params["fc_dim"],
+                                 multi_sample_dropout=params["multi_dropout"])(x)
 
     x1 = TextProductMatch(N_CLASSES, metric=params["metric"])([x_pool, labels_onehot])
 
     model = tf.keras.Model(inputs=[[ids, att, tok], labels_onehot], outputs=[x1])
-    emb_model = tf.keras.Model(inputs=[[ids,att, tok]], outputs=[x_pool])
+    emb_model = tf.keras.Model(inputs=[[ids, att, tok]], outputs=[x_pool])
 
     model.summary()
 
     return model, emb_model
+
+
+def create_optimizer(total_samples=None):
+    if not params["use_swa"]:
+        return tf.keras.optimizers.Adam(learning_rate=params["lr"])
+
+    no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
+    base_opt = transformers.AdamWeightDecay(learning_rate=params["lr"],
+                                            weight_decay_rate=params["weight_decay"],
+                                            exclude_from_weight_decay=no_decay,
+                                            )
+    train_steps = (total_samples / params["batch_size"]) * params["epochs"]
+    opt = tfx.optimizers.SWA(base_opt, start_averaging=int(train_steps * params["swa_ratio"]),
+                             average_period=params["swa_freq"])
+
+    return opt
 
 
 def main():
@@ -121,16 +142,19 @@ def main():
     y_raw = np.array(LabelEncoder().fit_transform(dat["label_group"].tolist()))
     y = tf.keras.utils.to_categorical(y_raw, num_classes=N_CLASSES)
 
-
     cv = StratifiedKFold(N_FOLDS, random_state=SEED, shuffle=True)
+
     for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X[0], y_raw)):
         print("Train size: %s, Valid size: %s" % (len(train_idx), len(test_idx)))
         X_train, y_train, X_test, y_test = (X[0][train_idx], X[1][train_idx], X[2][train_idx]), y[train_idx], (
             X[0][test_idx], X[1][test_idx], X[2][test_idx]), y[test_idx]
 
         model, emb_model = create_model()
+
+        opt = create_optimizer(total_samples=len(train_idx))
+
         model.compile(
-            optimizer=tf.keras.optimizers.Adam(lr=params["lr"]),
+            optimizer=opt,
             loss=tf.keras.losses.CategoricalCrossentropy(),
             metrics=tf.keras.metrics.CategoricalAccuracy(),
         )
@@ -144,7 +168,8 @@ def main():
                                                save_best_only=True,
                                                save_weights_only=True,
                                                mode='min'),
-            EarlyStoppingByLossVal(monitor="categorical_accuracy", value=0.91)
+            EarlyStoppingByLossVal(monitor="categorical_accuracy", value=0.91),
+            LRFinder(min_lr=params["lr"],max_lr=0.0001),
         ]
 
         model.fit([X_train, y_train], y_train,
@@ -153,14 +178,7 @@ def main():
                   validation_data=([X_test, y_test], y_test),
                   callbacks=callbacks)
 
-        emb_model.save_weights(os.path.join(model_dir, "fold_"+str(fold_idx)),save_format="h5",overwrite=True)
-
-        # del model, emb_model
-        #
-        # print("Reload model")
-        # _, emb_model = create_model()
-        # emb_model.load_weights(os.path.join(model_dir, "fold_"+str(fold_idx)))
-        # print(emb_model.predict(encoder(X_title[:10])))
+        emb_model.save_weights(os.path.join(model_dir, "fold_" + str(fold_idx)), save_format="h5", overwrite=True)
 
 
 if __name__ == "__main__":
