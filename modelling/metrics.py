@@ -3,8 +3,6 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 import tensorflow_probability as tfp
 from tensorflow.keras import layers
-from tensorflow.keras import layers, regularizers
-
 
 
 class CosineSimilarity(layers.Layer):
@@ -51,7 +49,7 @@ class ArcFace(layers.Layer):
 
         if training:
             theta = tf.acos(K.clip(cos, -1.0 + K.epsilon(), 1.0 - K.epsilon()))
-            tf.summary.histogram("angles",theta)
+            tf.summary.histogram("angles", theta)
 
             cos_add = tf.cos(theta + self.margin)
             mask = tf.cast(labels, dtype=cos_add.dtype)
@@ -227,8 +225,6 @@ class CircleLossCL(layers.Layer):
         return (None, self.num_classes)
 
 
-
-
 metric_layer_dict = {
     "arcface": ArcFace,
     "adacos": AdaCos,
@@ -237,6 +233,8 @@ metric_layer_dict = {
     "linear": layers.Dot
 
 }
+
+
 # pooling_dict = {
 #     "mac": MAC,
 #     "gem": GeM,

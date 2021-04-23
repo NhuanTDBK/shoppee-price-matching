@@ -206,7 +206,7 @@ class LocalGlobalExtractor(tf.keras.layers.Layer):
         self.pool_layer = pooling_dict[pool]()
 
     def call(self, inputs, **kwargs):
-        x, y = inputs
+        x = inputs
         x = self.pool_layer(x)
         x = self.fts(x)
 
