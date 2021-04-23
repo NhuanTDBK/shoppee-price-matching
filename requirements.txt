@@ -1,7 +1,7 @@
 pandas
 sklearn
 tensorflow
-tensorflow-probability
 transformers
 pydot
 graphviz
+tensorflow-addons
