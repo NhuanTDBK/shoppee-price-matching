@@ -55,6 +55,7 @@ os.makedirs(model_dir, exist_ok=True)
 
 def create_model():
     inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
+
     label = tf.keras.layers.Input(shape=(),dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES,name="onehot")
 
@@ -63,10 +64,10 @@ def create_model():
 
     x1 = MetricLearner(N_CLASSES, metric=params["metric"])([emb, labels_onehot])
 
-    model = tf.keras.Model(inputs=[inp, labels_onehot], outputs=[x1])
+    model = tf.keras.Model(inputs=[inp, label], outputs=[x1])
     model.summary()
 
-    emb_model = tf.keras.Model(inputs=inp, outputs=emb)
+    emb_model = tf.keras.Model(inputs=[inp], outputs=[emb])
 
     return model, emb_model
 
@@ -103,8 +104,8 @@ def main():
 
         model.compile(
             optimizer=opt,
-            loss=tf.keras.losses.CategoricalCrossentropy(),
-            metrics=tf.keras.metrics.CategoricalAccuracy(),
+            loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+            metrics=tf.keras.metrics.SparseCategoricalAccuracy()
         )
 
         callbacks = [
