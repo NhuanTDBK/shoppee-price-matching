@@ -55,8 +55,8 @@ os.makedirs(model_dir, exist_ok=True)
 
 def create_model():
     inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
-    label = tf.keras.layers.Input(shape=(), name='inp2')
-    labels_onehot = tf.one_hot(label, depth=N_CLASSES)
+    label = tf.keras.layers.Input(shape=(),dtype=tf.int32, name='inp2')
+    labels_onehot = tf.one_hot(label, depth=N_CLASSES,name="onehot")
 
     x = tf.keras.applications.ResNet50(include_top=False)(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
