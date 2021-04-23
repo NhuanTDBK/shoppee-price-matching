@@ -196,7 +196,7 @@ pooling_dict = {
 
 class LocalGlobalExtractor(tf.keras.layers.Layer):
     def __init__(self, pool, fc_dim=512, dropout_rate=0.5, *args, **kwargs):
-        super(LocalGlobalExtractor).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.fts = tf.keras.models.Sequential(
             [
                 tf.keras.layers.Dropout(dropout_rate),

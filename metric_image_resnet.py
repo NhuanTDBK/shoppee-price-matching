@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument("--pool", type=str, default="gem")
     parser.add_argument("--dropout", type=float, default=0.5)
     parser.add_argument("--last_hidden_states", type=int, default=3)
-    parser.add_argument("--fc_dim", type=int, default=None)
+    parser.add_argument("--fc_dim", type=int, default=512)
     parser.add_argument("--lr", type=float, default=0.00001)
     parser.add_argument("--metric", type=str, default="adacos")
     parser.add_argument("--input_path", type=str)
