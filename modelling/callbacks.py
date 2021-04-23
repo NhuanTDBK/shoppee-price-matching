@@ -50,7 +50,6 @@ class LRFinder(tf.keras.callbacks.Callback):
                 self.model.load_weights('tmp.hdf5')
 
             self.model.optimizer.lr = self.learning_rates[self.iteration // self.batches_lr_update]
-
             self.losses.append(loss)
 
         if loss > self.best_loss * self.stop_multiplier:  # Stop criteria
@@ -68,6 +67,14 @@ class LRFinder(tf.keras.callbacks.Callback):
         plt.ylabel("Loss")
         plt.xscale('log')
         plt.show()
+
+    def on_epoch_begin(self, epoch, logs=None):
+        print('\nEpoch %05d: LearningRateScheduler reducing learning '
+              'rate to %s.' % (epoch + 1, logs['lr']))
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        logs['lr'] = self.model.optimizer.lr
 
 
 class EarlyStoppingByLossVal(tf.keras.callbacks.Callback):
