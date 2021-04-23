@@ -77,6 +77,25 @@ def count_data_items(filenames):
     n = [int(re.compile(r"-([0-9]*)\.").search(filename).group(1)) for filename in filenames]
     return np.sum(n)
 
+def get_lr_callback():
+    lr_start   = 0.000001
+    lr_max     = 0.000005 * BATCH_SIZE
+    lr_min     = 0.000001
+    lr_ramp_ep = 5
+    lr_sus_ep  = 0
+    lr_decay   = 0.8
+   
+    def lrfn(epoch):
+        if epoch < lr_ramp_ep:
+            lr = (lr_max - lr_start) / lr_ramp_ep * epoch + lr_start   
+        elif epoch < lr_ramp_ep + lr_sus_ep:
+            lr = lr_max    
+        else:
+            lr = (lr_max - lr_min) * lr_decay**(epoch - lr_ramp_ep - lr_sus_ep) + lr_min    
+        return lr
+
+    lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose = True)
+    return lr_callback
 
 def main():
     seed_everything(SEED)
@@ -119,6 +138,7 @@ def main():
                                                mode='min'),
             EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91),
             # LRFinder(min_lr=params["lr"], max_lr=0.0001),
+            get_lr_callback(),
         ]
 
         STEPS_PER_EPOCH = NUM_TRAINING_IMAGES // params["batch_size"]
