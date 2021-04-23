@@ -12,7 +12,7 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
 
 from features.pool import BertLastHiddenState, PoolingStrategy
-from modelling.callbacks import EarlyStoppingByLossVal, LRFinder
+from modelling.callbacks import EarlyStoppingByLossVal, LRFinder, create_optimizer
 from modelling.models import TextProductMatch
 from text.extractor import convert_unicode
 
@@ -114,12 +114,12 @@ def create_model():
     return model, emb_model
 
 
-def create_optimizer(total_samples=None):
+def get_create_optimizer(total_samples=None):
     if not params["use_swa"]:
         return tf.keras.optimizers.Adam(learning_rate=params["lr"])
 
     num_train_steps = (total_samples / params["batch_size"]) * params["epochs"]
-    base_opt, _ = transformers.create_optimizer(params["lr"],
+    base_opt, _ = create_optimizer(params["lr"],
                                                 num_train_steps=num_train_steps,
                                                 num_warmup_steps=int(num_train_steps * params["warmup_ratio"]),
                                                 weight_decay_rate=params["weight_decay"]
@@ -153,7 +153,7 @@ def main():
 
         model, emb_model = create_model()
 
-        opt = create_optimizer(total_samples=len(train_idx))
+        opt = get_create_optimizer(total_samples=len(train_idx))
 
         model.compile(
             optimizer=opt,
