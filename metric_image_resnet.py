@@ -79,7 +79,7 @@ def count_data_items(filenames):
 
 def get_lr_callback():
     lr_start   = 0.000001
-    lr_max     = 0.000005 * BATCH_SIZE
+    lr_max     = 0.000005 * params["batch_size"]
     lr_min     = 0.000001
     lr_ramp_ep = 5
     lr_sus_ep  = 0
