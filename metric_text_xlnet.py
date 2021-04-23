@@ -12,8 +12,9 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
 
 from features.pool import BertLastHiddenState, PoolingStrategy
-from modelling.callbacks import EarlyStoppingByLossVal, LRFinder, create_optimizer
+from modelling.callbacks import EarlyStoppingByLossVal, LRFinder
 from modelling.models import TextProductMatch
+from modelling.optim import create_optimizer
 from text.extractor import convert_unicode
 
 SEED = 4111
@@ -119,11 +120,11 @@ def get_create_optimizer(total_samples=None):
         return tf.keras.optimizers.Adam(learning_rate=params["lr"])
 
     num_train_steps = (total_samples / params["batch_size"]) * params["epochs"]
-    base_opt, _ = create_optimizer(params["lr"],
-                                                num_train_steps=num_train_steps,
-                                                num_warmup_steps=int(num_train_steps * params["warmup_ratio"]),
-                                                weight_decay_rate=params["weight_decay"]
-                                                )
+    base_opt = create_optimizer(params["lr"],
+                                num_train_steps=num_train_steps,
+                                num_warmup_steps=int(num_train_steps * params["warmup_ratio"]),
+                                weight_decay_rate=params["weight_decay"]
+                                )
 
     opt = tfx.optimizers.SWA(base_opt, start_averaging=int(num_train_steps * params["swa_ratio"]),
                              average_period=params["swa_freq"])
