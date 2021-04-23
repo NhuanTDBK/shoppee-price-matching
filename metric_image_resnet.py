@@ -59,7 +59,7 @@ def create_model():
     label = tf.keras.layers.Input(shape=(),dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES,name="onehot")
 
-    x = tf.keras.applications.ResNet50(include_top=False)(inp)
+    x = tf.keras.applications.ResNet50(include_top=False, weights="imagenet")(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
 
     x1 = MetricLearner(N_CLASSES, metric=params["metric"])([emb, labels_onehot])
@@ -117,7 +117,7 @@ def main():
                                                save_best_only=True,
                                                save_weights_only=True,
                                                mode='min'),
-            EarlyStoppingByLossVal(monitor="categorical_accuracy", value=0.91),
+            EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91),
             # LRFinder(min_lr=params["lr"], max_lr=0.0001),
         ]
 
