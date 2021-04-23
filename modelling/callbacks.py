@@ -69,8 +69,9 @@ class LRFinder(tf.keras.callbacks.Callback):
         plt.show()
 
     def on_epoch_begin(self, epoch, logs=None):
+        lr = self.model.optimizer.lr
         print('\nEpoch %05d: LearningRateScheduler reducing learning '
-              'rate to %s.' % (epoch + 1, logs['lr']))
+              'rate to %s.' % (epoch + 1, lr))
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
