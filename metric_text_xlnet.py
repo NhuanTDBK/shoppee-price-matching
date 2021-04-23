@@ -45,6 +45,7 @@ def parse_args():
     parser.add_argument("--use_swa", type=bool, default=True)
     parser.add_argument("--swa_ratio", type=float, default=0.9)
     parser.add_argument("--swa_freq", type=float, default=30)
+    parser.add_argument("--warmup_ratio", type=float, default=0.25)
 
     args = parser.parse_args()
     params = vars(args)
@@ -117,13 +118,14 @@ def create_optimizer(total_samples=None):
     if not params["use_swa"]:
         return tf.keras.optimizers.Adam(learning_rate=params["lr"])
 
-    no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
-    base_opt = transformers.AdamWeightDecay(learning_rate=params["lr"],
-                                            weight_decay_rate=params["weight_decay"],
-                                            exclude_from_weight_decay=no_decay,
-                                            )
-    train_steps = (total_samples / params["batch_size"]) * params["epochs"]
-    opt = tfx.optimizers.SWA(base_opt, start_averaging=int(train_steps * params["swa_ratio"]),
+    num_train_steps = (total_samples / params["batch_size"]) * params["epochs"]
+    base_opt, _ = transformers.create_optimizer(params["lr"],
+                                                num_train_steps=num_train_steps,
+                                                num_warmup_steps=int(num_train_steps * params["warmup_ratio"]),
+                                                weight_decay_rate=params["weight_decay"]
+                                                )
+
+    opt = tfx.optimizers.SWA(base_opt, start_averaging=int(num_train_steps * params["swa_ratio"]),
                              average_period=params["swa_freq"])
 
     return opt
@@ -169,7 +171,7 @@ def main():
                                                save_weights_only=True,
                                                mode='min'),
             EarlyStoppingByLossVal(monitor="categorical_accuracy", value=0.91),
-            LRFinder(min_lr=params["lr"],max_lr=0.0001),
+            LRFinder(min_lr=params["lr"], max_lr=0.0001),
         ]
 
         model.fit([X_train, y_train], y_train,
