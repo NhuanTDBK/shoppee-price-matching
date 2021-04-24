@@ -10,14 +10,16 @@ class CosineSimilarity(layers.Layer):
     Cosine similarity with classwise weights
     """
 
-    def __init__(self, num_classes, **kwargs):
+    def __init__(self, num_classes, l2_wd=0.0, **kwargs):
         super().__init__(**kwargs)
+        self.l2_wd = l2_wd
         self.num_classes = num_classes
 
     def build(self, input_shape):
         input_dim = input_shape[-1]
         self.W = self.add_weight(shape=(input_dim, self.num_classes),
                                  initializer='glorot_uniform',
+                                 regularizer=tf.keras.regularizers.l2(self.l2_wd),
                                  trainable=True)
 
     def call(self, inputs, **kwargs):
@@ -35,12 +37,12 @@ class ArcFace(layers.Layer):
     Implementation of https://arxiv.org/pdf/1801.07698.pdf
     """
 
-    def __init__(self, num_classes, margin=0.5, scale=30, **kwargs):
+    def __init__(self, num_classes, margin=0.5, scale=30, l2_wd = 1e-5, **kwargs):
         super().__init__(**kwargs)
         self.num_classes = num_classes
         self.margin = margin
         self.scale = scale
-        self.cos_similarity = CosineSimilarity(num_classes)
+        self.cos_similarity = CosineSimilarity(num_classes,l2_wd)
 
     def call(self, inputs, training):
         # If not training (prediction), labels are ignored
