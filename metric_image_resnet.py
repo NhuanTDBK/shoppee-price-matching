@@ -3,8 +3,8 @@ import glob
 import os
 import random
 import re
-import tensorflow_addons as tfx
 
+import tensorflow_addons as tfx
 from sklearn.model_selection import KFold
 
 from features.img import *
@@ -39,6 +39,8 @@ def parse_args():
     parser.add_argument("--weight_decay", type=float, default=1e-5)
     parser.add_argument("--metric", type=str, default="adacos")
     parser.add_argument("--input_path", type=str)
+    parser.add_argument("--smooth_ce", type=float, default=0.0)
+    parser.add_argument("--warmup_epoch", type=int, default=10)
 
     args = parser.parse_args()
     params = vars(args)
@@ -60,9 +62,17 @@ def create_model():
 
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
+    if params["smooth_ce"]:
+        smooth_pos = 1.0 - labels_onehot
+        smooth_neg = params["smooth_ce"] / N_CLASSES
 
-    x = tf.keras.applications.ResNet50(include_top=False, weights="imagenet")(inp)
+        labels_onehot = labels_onehot * smooth_pos + smooth_neg
 
+    resnet = tf.keras.applications.ResNet50(include_top=False, weights="imagenet")
+    for layer in resnet.layers:
+        layer.trainable = True
+
+    x = resnet(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
 
     x1 = MetricLearner(N_CLASSES, metric=params["metric"])([emb, labels_onehot])
@@ -85,25 +95,32 @@ def count_data_items(filenames):
     return np.sum(n)
 
 
-def get_lr_callback():
-    lr_start = 0.000001
-    lr_max = 0.000005 * params["batch_size"]
-    lr_min = 0.000001
-    lr_ramp_ep = 5
-    lr_sus_ep = 0
-    lr_decay = 0.8
+# def get_lr_callback():
+#     lr_start = 0.000001
+#     lr_max = 0.000005 * params["batch_size"]
+#     lr_min = 0.000001
+#     lr_ramp_ep = 5
+#     lr_sus_ep = 0
+#     lr_decay = 0.8
+#
+#     def lrfn(epoch):
+#         if epoch < lr_ramp_ep:
+#             lr = (lr_max - lr_start) / lr_ramp_ep * epoch + lr_start
+#         elif epoch < lr_ramp_ep + lr_sus_ep:
+#             lr = lr_max
+#         else:
+#             lr = (lr_max - lr_min) * lr_decay ** (epoch - lr_ramp_ep - lr_sus_ep) + lr_min
+#         return lr
+#
+#     lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
+#     return lr_callback
 
-    def lrfn(epoch):
-        if epoch < lr_ramp_ep:
-            lr = (lr_max - lr_start) / lr_ramp_ep * epoch + lr_start
-        elif epoch < lr_ramp_ep + lr_sus_ep:
-            lr = lr_max
-        else:
-            lr = (lr_max - lr_min) * lr_decay ** (epoch - lr_ramp_ep - lr_sus_ep) + lr_min
-        return lr
+def get_lr_callback(total_size):
+    total_steps = int(params["epoch"] * total_size / params["batch_size"])
+    warmup_steps = int(params["warmup_epoch"] * total_size / params["batch_size"])
 
-    lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
-    return lr_callback
+    return WarmUpCosineDecayScheduler(params["lr"], total_steps=total_steps,
+                                      warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
 
 
 def main():
@@ -136,6 +153,7 @@ def main():
             loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
             metrics=tf.keras.metrics.SparseCategoricalAccuracy()
         )
+
         callbacks = [
             tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5, ),
             # tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=2, restore_best_weights=True),
@@ -146,9 +164,10 @@ def main():
             #                                    save_weights_only=True,
             #                                    mode='min'),
             EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91),
-            tf.keras.callbacks.CSVLogger(os.path.join(model_dir,"training_%s.log")),
+            tf.keras.callbacks.CSVLogger(os.path.join(model_dir, "training_%s.log")),
+            get_lr_callback(NUM_TRAINING_IMAGES),
             # LRFinder(min_lr=params["lr"], max_lr=0.0001, ),
-            get_lr_callback(),
+            # get_lr_callback(),
         ]
 
         STEPS_PER_EPOCH = NUM_TRAINING_IMAGES // params["batch_size"]
