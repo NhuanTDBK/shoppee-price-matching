@@ -62,11 +62,16 @@ def create_model():
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
 
     x = tf.keras.applications.ResNet50(include_top=False, weights="imagenet")(inp)
+
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
 
     x1 = MetricLearner(N_CLASSES, metric=params["metric"])([emb, labels_onehot])
 
     model = tf.keras.Model(inputs=[inp, label], outputs=[x1])
+
+    for layer in model.layers:
+        layer.trainable = True
+
     model.summary()
 
     emb_model = tf.keras.Model(inputs=[inp], outputs=[emb])
