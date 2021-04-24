@@ -123,7 +123,8 @@ def main():
         ds_val = get_validation_dataset(files[valid_files], params["batch_size"])
 
         model, emb_model = create_model()
-        opt = tfx.optimizers.AdamW(weight_decay=params["weight_decay"], learning_rate=params["lr"])
+        opt = tfx.optimizers.AdamW(weight_decay=params["weight_decay"],
+                                   learning_rate=params["lr"])
 
         model.compile(
             optimizer=opt,
@@ -140,8 +141,9 @@ def main():
             #                                    save_weights_only=True,
             #                                    mode='min'),
             EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91),
-            LRFinder(min_lr=params["lr"], max_lr=0.0001, ),
-            # get_lr_callback(),
+            tf.keras.callbacks.CSVLogger(os.path.join(model_dir,"training_%s.log")),
+            # LRFinder(min_lr=params["lr"], max_lr=0.0001, ),
+            get_lr_callback(),
         ]
 
         STEPS_PER_EPOCH = NUM_TRAINING_IMAGES // params["batch_size"]
