@@ -209,13 +209,13 @@ class WarmUpCosineDecayScheduler(keras.callbacks.Callback):
                                       warmup_steps=self.warmup_steps,
                                       hold_base_rate_steps=self.hold_base_rate_steps)
         K.set_value(self.model.optimizer.lr, lr)
-        if self.verbose > 0:
+        # if self.verbose > 0:
             # print('\nBatch %05d: setting learning '
             #       'rate to %s.' % (self.global_step + 1, lr))
-            self.pbar.update(batch, values=[("lr", lr), ("global_step", self.global_step)])
+            # self.pbar.update(batch, values=[("lr", lr), ("global_step", self.global_step)])
 
     def on_epoch_begin(self, epoch, logs=None):
-        self.pbar = tf.keras.utils.Progbar(self.steps_per_epoch)
+        print('\n Begin Epoch %05d: setting learning rate to %s.' % (self.global_step + 1,K.get_value(self.model.optimizer.lr)))
 
     def on_epoch_end(self, epoch, logs=None):
-        self.pbar = tf.keras.utils.Progbar(self.steps_per_epoch)
+        print('\n After Epoch %05d: setting learning rate to %s.' % (self.global_step + 1,K.get_value(self.model.optimizer.lr)))

@@ -183,6 +183,7 @@ def main():
                   callbacks=callbacks)
 
         emb_model.save_weights(os.path.join(model_dir, "fold_" + str(fold_idx)), save_format="h5", overwrite=True)
+        print("Learning rate after training: {.2f}".format(tf.keras.backend.get_value(model.optimizer.lr)))
 
 
 if __name__ == "__main__":
