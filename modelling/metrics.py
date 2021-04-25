@@ -65,11 +65,11 @@ class ArcFace(layers.Layer):
 
 
 class AdaCos(layers.Layer):
-    def __init__(self, num_classes, margin=0.0, scale=0.0, **kwargs):
+    def __init__(self, num_classes, margin=0.0, scale=0.0,l2_wd = 0, **kwargs):
         super().__init__(**kwargs)
         self.num_classes = num_classes
 
-        self.cos_similarity = CosineSimilarity(num_classes)
+        self.cos_similarity = CosineSimilarity(num_classes,l2_wd)
         self.scale = tf.Variable(tf.sqrt(2.0) * tf.math.log(num_classes - 1.0),
                                  trainable=False)
 
@@ -109,7 +109,7 @@ class CircleLoss(layers.Layer):
     Implementation of https://arxiv.org/abs/2002.10857 (pair-level label version)
     """
 
-    def __init__(self, margin=0.25, scale=256, **kwargs):
+    def __init__(self, margin=0.25, scale=256,l2_wd = 0, **kwargs):
         """
         Args
           margin: a float value, margin for the true label (default 0.25)
@@ -176,7 +176,7 @@ class CircleLossCL(layers.Layer):
     Implementation of https://arxiv.org/abs/2002.10857 (class-level label version)
     """
 
-    def __init__(self, num_classes, margin=0.25, scale=256, **kwargs):
+    def __init__(self, num_classes, margin=0.25, scale=256,l2_wd = 0, **kwargs):
         """
         Args
           num_classes: an int value, number of target classes
@@ -264,6 +264,7 @@ class MetricLearner(layers.Layer):
                  margin=0.5,
                  ls_eps=0.0,
                  theta_zero=0.85,
+                 l2_wd = 0,
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.n_classes = n_classes
@@ -276,7 +277,7 @@ class MetricLearner(layers.Layer):
 
         self.metric_layer = metric_layer_dict[metric](num_classes=self.n_classes,
                                                       margin=self.margin,
-                                                      scale=self.s)
+                                                      scale=self.s,l2_wd=l2_wd)
 
     def call(self, inputs, training=None, mask=None):
         x, y = inputs

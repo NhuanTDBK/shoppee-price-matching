@@ -37,10 +37,12 @@ def parse_args():
     parser.add_argument("--fc_dim", type=int, default=512)
     parser.add_argument("--lr", type=float, default=0.00001)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
+    parser.add_argument("--l2_wd", type=float, default=1e-5)
     parser.add_argument("--metric", type=str, default="adacos")
     parser.add_argument("--input_path", type=str)
     parser.add_argument("--smooth_ce", type=float, default=0.0)
     parser.add_argument("--warmup_epoch", type=int, default=10)
+    parser.add_argument("--verbose", type=int, default=0)
 
     args = parser.parse_args()
     params = vars(args)
@@ -75,7 +77,7 @@ def create_model():
     x = resnet(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
 
-    x1 = MetricLearner(N_CLASSES, metric=params["metric"])([emb, labels_onehot])
+    x1 = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])([emb, labels_onehot])
 
     model = tf.keras.Model(inputs=[inp, label], outputs=[x1])
 
@@ -119,7 +121,7 @@ def get_lr_callback(total_size):
     total_steps = int(params["epoch"] * total_size / params["batch_size"])
     warmup_steps = int(params["warmup_epoch"] * total_size / params["batch_size"])
 
-    return WarmUpCosineDecayScheduler(params["lr"], total_steps=total_steps,
+    return WarmUpCosineDecayScheduler(params["lr"], total_steps=total_steps,verbose=params["verbose"],
                                       warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
 
 
