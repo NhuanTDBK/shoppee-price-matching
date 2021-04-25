@@ -159,10 +159,12 @@ class WarmUpCosineDecayScheduler(keras.callbacks.Callback):
     def __init__(self,
                  learning_rate_base,
                  total_steps,
+                 steps_per_epoch,
                  global_step_init=0,
                  warmup_learning_rate=0.0,
                  warmup_steps=0,
                  hold_base_rate_steps=0,
+
                  verbose=0):
         """Constructor for cosine decay with warmup learning rate scheduler.
 
@@ -192,6 +194,7 @@ class WarmUpCosineDecayScheduler(keras.callbacks.Callback):
             Warmup step: %.2d,
             Warmup learning rate: %.4f
         """.format(self.warmup_steps, self.warmup_learning_rate))
+        self.steps_per_epoch = steps_per_epoch
 
     def on_batch_end(self, batch, logs=None):
         self.global_step = self.global_step + 1
@@ -207,5 +210,12 @@ class WarmUpCosineDecayScheduler(keras.callbacks.Callback):
                                       hold_base_rate_steps=self.hold_base_rate_steps)
         K.set_value(self.model.optimizer.lr, lr)
         if self.verbose > 0:
-            print('\nBatch %05d: setting learning '
-                  'rate to %s.' % (self.global_step + 1, lr))
+            # print('\nBatch %05d: setting learning '
+            #       'rate to %s.' % (self.global_step + 1, lr))
+            self.pbar.update(batch, values=[("lr", lr), ("global_step", self.global_step)])
+
+    def on_epoch_begin(self, epoch, logs=None):
+        self.pbar = tf.keras.utils.Progbar(self.steps_per_epoch)
+
+    def on_epoch_end(self, epoch, logs=None):
+        self.pbar = tf.keras.utils.Progbar(self.steps_per_epoch)
