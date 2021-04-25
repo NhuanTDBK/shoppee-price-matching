@@ -118,7 +118,7 @@ def count_data_items(filenames):
 #     return lr_callback
 
 def get_lr_callback(total_size):
-    total_steps = int(params["epoch"] * total_size / params["batch_size"])
+    total_steps = int(params["epochs"] * total_size / params["batch_size"])
     warmup_steps = int(params["warmup_epoch"] * total_size / params["batch_size"])
 
     return WarmUpCosineDecayScheduler(params["lr"], total_steps=total_steps,verbose=params["verbose"],

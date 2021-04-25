@@ -188,6 +188,10 @@ class WarmUpCosineDecayScheduler(keras.callbacks.Callback):
         self.hold_base_rate_steps = hold_base_rate_steps
         self.verbose = verbose
         self.learning_rates = []
+        print("""
+            Warmup step: %.2d,
+            Warmup learning rate: %.4f
+        """.format(self.warmup_steps, self.warmup_learning_rate))
 
     def on_batch_end(self, batch, logs=None):
         self.global_step = self.global_step + 1
