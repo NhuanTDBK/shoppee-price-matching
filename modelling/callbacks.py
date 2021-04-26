@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import numpy as np
 # from keras.callbacks import Callback
 import tensorflow as tf
@@ -209,13 +208,34 @@ class WarmUpCosineDecayScheduler(keras.callbacks.Callback):
                                       warmup_steps=self.warmup_steps,
                                       hold_base_rate_steps=self.hold_base_rate_steps)
         K.set_value(self.model.optimizer.lr, lr)
-        # if self.verbose > 0:
-            # print('\nBatch %05d: setting learning '
-            #       'rate to %s.' % (self.global_step + 1, lr))
-            # self.pbar.update(batch, values=[("lr", lr), ("global_step", self.global_step)])
 
-    def on_epoch_begin(self, epoch, logs=None):
-        print('\n Begin Epoch %05d: setting learning rate to %s.' % (self.global_step + 1,K.get_value(self.model.optimizer.lr)))
+    # def on_epoch_begin(self, epoch, logs=None):
+    #     print('\n Begin Epoch %05d: setting learning rate to %s.' % (self.global_step + 1,K.get_value(self.model.optimizer.lr)))
 
     def on_epoch_end(self, epoch, logs=None):
         print('\n After Epoch %05d: setting learning rate to %s.' % (self.global_step + 1,K.get_value(self.model.optimizer.lr)))
+
+if __name__ == '__main__':
+    params = {
+        "batch_size": 32,
+        "epochs": 20,
+        "lr": 1e-3,
+        "warmup_epoch":2,
+    }
+    total_size = 27400
+    steps_per_epoch = total_size / params["batch_size"]
+    total_steps = int(params["epochs"] * steps_per_epoch)
+    warmup_steps = int(params["warmup_epoch"] * steps_per_epoch)
+
+    global_step = 0
+    lrs = []
+    for _ in range(total_steps):
+        lrs.append(cosine_decay_with_warmup(global_step,params["lr"],total_steps,warmup_learning_rate=0.0,warmup_steps=warmup_steps))
+        global_step += 1
+
+    import matplotlib.pyplot as plt
+    ax = plt.subplot()
+    ax.plot(np.arange(global_step),lrs)
+    plt.show()
+
+

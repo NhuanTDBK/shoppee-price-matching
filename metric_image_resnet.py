@@ -168,7 +168,7 @@ def main():
             #                                    save_weights_only=True,
             #                                    mode='min'),
             EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91),
-            tf.keras.callbacks.CSVLogger(os.path.join(model_dir, "training_%s.log")),
+            tf.keras.callbacks.CSVLogger(os.path.join(model_dir, "training_%s.log"%fold_idx)),
             get_lr_callback(NUM_TRAINING_IMAGES),
             # LRFinder(min_lr=params["lr"], max_lr=0.0001, ),
             # get_lr_callback(),
