@@ -64,6 +64,6 @@ def train(params: dict, model: tf.keras.models.Model, emb_model: tf.keras.models
               validation_data=ds_val,
               callbacks=callbacks)
 
-    emb_model.save_weights(os.path.join(model_saved_dir, "fold_" + str(model_name)), save_format="h5", overwrite=True)
+    emb_model.save_weights(os.path.join(model_saved_dir, "emb_" + str(model_name)), save_format="h5", overwrite=True)
 
     return model, emb_model, optimizer, loss, metrics
