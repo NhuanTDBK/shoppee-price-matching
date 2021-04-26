@@ -190,8 +190,8 @@ class WarmUpCosineDecayScheduler(keras.callbacks.Callback):
         self.verbose = verbose
         self.learning_rates = []
         print("""
-            Warmup step: {.2d},
-            Warmup learning rate: {.4f}
+            Warmup step: %.2f,
+            Warmup learning rate: %.4f
         """.format(self.warmup_steps, self.warmup_learning_rate))
         self.steps_per_epoch = steps_per_epoch
 
@@ -213,14 +213,16 @@ class WarmUpCosineDecayScheduler(keras.callbacks.Callback):
     #     print('\n Begin Epoch %05d: setting learning rate to %s.' % (self.global_step + 1,K.get_value(self.model.optimizer.lr)))
 
     def on_epoch_end(self, epoch, logs=None):
-        print('\n After Epoch %05d: setting learning rate to %s.' % (self.global_step + 1,K.get_value(self.model.optimizer.lr)))
+        print('\n After Epoch %05d: setting learning rate to %s.' % (
+        self.global_step + 1, K.get_value(self.model.optimizer.lr)))
+
 
 if __name__ == '__main__':
     params = {
         "batch_size": 32,
         "epochs": 20,
         "lr": 1e-3,
-        "warmup_epoch":2,
+        "warmup_epoch": 2,
     }
     total_size = 27400
     steps_per_epoch = total_size / params["batch_size"]
@@ -230,12 +232,12 @@ if __name__ == '__main__':
     global_step = 0
     lrs = []
     for _ in range(total_steps):
-        lrs.append(cosine_decay_with_warmup(global_step,params["lr"],total_steps,warmup_learning_rate=0.0,warmup_steps=warmup_steps))
+        lrs.append(cosine_decay_with_warmup(global_step, params["lr"], total_steps, warmup_learning_rate=0.0,
+                                            warmup_steps=warmup_steps))
         global_step += 1
 
     import matplotlib.pyplot as plt
+
     ax = plt.subplot()
-    ax.plot(np.arange(global_step),lrs)
+    ax.plot(np.arange(global_step), lrs)
     plt.show()
-
-
