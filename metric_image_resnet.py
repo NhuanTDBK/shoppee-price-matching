@@ -33,6 +33,7 @@ def parse_args():
     parser.add_argument("--smooth_ce", type=float, default=0.0)
     parser.add_argument("--warmup_epoch", type=int, default=10)
     parser.add_argument("--verbose", type=int, default=0)
+    parser.add_argument("--resume_fold", type=int, default=None)
 
     args = parser.parse_args()
     params = vars(args)
@@ -95,6 +96,26 @@ def get_lr_callback(total_size):
                                       warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
 
 
+# def get_lr_callback():
+#     lr_start = 0.000001
+#     lr_max = 0.000005 * params["batch_size"]
+#     lr_min = 0.000001
+#     lr_ramp_ep = 5
+#     lr_sus_ep = 0
+#     lr_decay = 0.8
+#
+#     def lrfn(epoch):
+#         if epoch < lr_ramp_ep:
+#             lr = (lr_max - lr_start) / lr_ramp_ep * epoch + lr_start
+#         elif epoch < lr_ramp_ep + lr_sus_ep:
+#             lr = lr_max
+#         else:
+#             lr = (lr_max - lr_min) * lr_decay ** (epoch - lr_ramp_ep - lr_sus_ep) + lr_min
+#         return lr
+#
+#     lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
+#     return lr_callback
+
 def main():
     seed_everything(SEED)
 
@@ -107,9 +128,12 @@ def main():
     n_folds = 5
     cv = KFold(n_folds, shuffle=True, random_state=SEED)
     for fold_idx, (train_files, valid_files) in enumerate(cv.split(files, np.arange(n_folds))):
+        if params["resume_fold"] and params["resume_fold"] != fold_idx:
+            continue
+
         ds_train = get_training_dataset(files[train_files], params["batch_size"])
         num_training_images = count_data_items(files[train_files])
-        print("Get ds training, %s images" % num_training_images)
+        print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
 
         print(f'Dataset: {num_training_images} training images')
 
@@ -127,9 +151,9 @@ def main():
             get_lr_callback(num_training_images),
         ]
 
+        model_id = "fold_" + str(fold_idx)
         train(params, model, emb_model, opt, loss, metrics, callbacks, ds_train, ds_val,
-                                num_training_images, model_dir,
-                                "fold_" + str(fold_idx))
+              num_training_images, model_dir, model_id)
 
 
 if __name__ == "__main__":

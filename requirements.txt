@@ -6,3 +6,4 @@ pydot
 graphviz
 tensorflow-addons
 sentencepiece
+faiss

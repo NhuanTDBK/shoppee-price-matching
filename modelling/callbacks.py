@@ -217,6 +217,15 @@ class WarmUpCosineDecayScheduler(keras.callbacks.Callback):
         self.global_step + 1, K.get_value(self.model.optimizer.lr)))
 
 
+class CheckpointCallback(tf.keras.callbacks.Callback):
+    def __init__(self, ckpt_manager: tf.train.CheckpointManager):
+        super(CheckpointCallback, self).__init__()
+        self.ckpt_manager = ckpt_manager
+
+    def on_epoch_end(self, epoch, logs=None):
+        self.ckpt_manager.save(epoch)
+
+
 if __name__ == '__main__':
     params = {
         "batch_size": 32,
