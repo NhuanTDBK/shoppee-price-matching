@@ -1,5 +1,6 @@
 import os
 import random
+import gc
 
 import tensorflow_addons as tfx
 
@@ -66,4 +67,6 @@ def train(params: dict, model: tf.keras.models.Model, emb_model: tf.keras.models
 
     emb_model.save_weights(os.path.join(model_saved_dir, "emb_" + str(model_name)), save_format="h5", overwrite=True)
 
-    return model, emb_model, optimizer, loss, metrics
+    del model, emb_model
+    gc.collect()
+    # return model, emb_model, optimizer, loss, metrics
