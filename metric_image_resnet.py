@@ -1,7 +1,6 @@
 import argparse
 import glob
 import os
-import random
 import re
 
 import tensorflow_addons as tfx
@@ -11,16 +10,7 @@ from features.img import *
 from features.pool import LocalGlobalExtractor
 from modelling.callbacks import *
 from modelling.metrics import MetricLearner
-
-SEED = 4111
-
-
-# Function to seed everything
-def seed_everything(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
-    tf.random.set_seed(seed)
+from utils import seed_everything
 
 
 def parse_args():
@@ -51,6 +41,7 @@ def parse_args():
 
 params = parse_args()
 
+SEED = 4111
 N_CLASSES = 11014
 IMAGE_SIZE = (512, 512)
 
@@ -159,19 +150,10 @@ def main():
         )
 
         callbacks = [
-            tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5, ),
-            # tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=2, restore_best_weights=True),
-            # tf.keras.callbacks.ModelCheckpoint(os.path.join(model_dir, "weights.h5"),
-            #                                    monitor='val_loss',
-            #                                    verbose=1,
-            #                                    save_best_only=True,
-            #                                    save_weights_only=True,
-            #                                    mode='min'),
+            tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5),
             EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91),
-            tf.keras.callbacks.CSVLogger(os.path.join(model_dir, "training_%s.log"%fold_idx)),
+            tf.keras.callbacks.CSVLogger(os.path.join(model_dir, "training_%s.log" % fold_idx)),
             get_lr_callback(NUM_TRAINING_IMAGES),
-            # LRFinder(min_lr=params["lr"], max_lr=0.0001, ),
-            # get_lr_callback(),
         ]
 
         STEPS_PER_EPOCH = NUM_TRAINING_IMAGES // params["batch_size"]
@@ -180,7 +162,9 @@ def main():
                   epochs=params["epochs"],
                   steps_per_epoch=STEPS_PER_EPOCH,
                   validation_data=ds_val,
-                  callbacks=callbacks)
+                  callbacks=callbacks,
+                  verbose=params["verbose"]
+                  )
 
         emb_model.save_weights(os.path.join(model_dir, "fold_" + str(fold_idx)), save_format="h5", overwrite=True)
         print("Learning rate after training: {.2f}".format(tf.keras.backend.get_value(model.optimizer.lr)))
