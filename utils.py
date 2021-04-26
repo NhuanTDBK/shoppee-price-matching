@@ -13,6 +13,7 @@ def seed_everything(seed):
     os.environ['PYTHONHASHSEED'] = str(seed)
     tf.random.set_seed(seed)
 
+
 def get_opt(params):
     if params["name"] == "adam":
         return tfx.optimizers.AdamW(learning_rate=params["lr"], weight_decay=params["wd"])
@@ -21,10 +22,10 @@ def get_opt(params):
         return tf.keras.optimizers.SGD(learning_rate=params["lr"], momentum=params["momentum"], )
 
 
-def train(model: tf.keras.models.Model, emb_model: tf.keras.models.Model, optimizer: tf.optimizers.Optimizer,
+def train(params: dict, model: tf.keras.models.Model, emb_model: tf.keras.models.Model,
+          optimizer: tf.optimizers.Optimizer,
           loss: tf.keras.losses.Loss, metrics, callbacks, ds_train, ds_val=None, num_training_images=None,
           model_saved_dir=None, model_name=None):
-
     model.compile(
         optimizer=optimizer,
         loss=loss,

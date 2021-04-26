@@ -10,7 +10,7 @@ from features.img import *
 from features.pool import LocalGlobalExtractor
 from modelling.callbacks import *
 from modelling.metrics import MetricLearner
-from utils import seed_everything
+from utils import seed_everything, train
 
 
 def parse_args():
@@ -19,7 +19,7 @@ def parse_args():
     parser.add_argument("--model_name", type=str, default='resnet50')
     parser.add_argument("--epochs", type=int, default=25)
     parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--margin", type=float, default=0.5)
+    parser.add_argument("--margin", type=float, default=0.3)
     parser.add_argument("--s", type=float, default=30)
     parser.add_argument("--pool", type=str, default="gem")
     parser.add_argument("--dropout", type=float, default=0.5)
@@ -61,7 +61,8 @@ def create_model():
 
         labels_onehot = labels_onehot * smooth_pos + smooth_neg
 
-    resnet = tf.keras.applications.ResNet50(include_top=False, weights="imagenet")
+    resnet = tf.keras.applications.ResNet50(include_top=False, weights="imagenet", )
+    print(resnet.output_shape)
     for layer in resnet.layers:
         layer.trainable = True
 
@@ -71,10 +72,6 @@ def create_model():
     x1 = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])([emb, labels_onehot])
 
     model = tf.keras.Model(inputs=[inp, label], outputs=[x1])
-
-    for layer in model.layers:
-        layer.trainable = True
-
     model.summary()
 
     emb_model = tf.keras.Model(inputs=[inp], outputs=[emb])
@@ -87,26 +84,6 @@ def count_data_items(filenames):
     n = [int(re.compile(r"-([0-9]*)\.").search(filename).group(1)) for filename in filenames]
     return np.sum(n)
 
-
-# def get_lr_callback():
-#     lr_start = 0.000001
-#     lr_max = 0.000005 * params["batch_size"]
-#     lr_min = 0.000001
-#     lr_ramp_ep = 5
-#     lr_sus_ep = 0
-#     lr_decay = 0.8
-#
-#     def lrfn(epoch):
-#         if epoch < lr_ramp_ep:
-#             lr = (lr_max - lr_start) / lr_ramp_ep * epoch + lr_start
-#         elif epoch < lr_ramp_ep + lr_sus_ep:
-#             lr = lr_max
-#         else:
-#             lr = (lr_max - lr_min) * lr_decay ** (epoch - lr_ramp_ep - lr_sus_ep) + lr_min
-#         return lr
-#
-#     lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
-#     return lr_callback
 
 def get_lr_callback(total_size):
     steps_per_epoch = total_size / params["batch_size"]
@@ -127,14 +104,14 @@ def main():
 
     print("Found files: ", files)
 
-    N_FOLDS = 5
-    cv = KFold(N_FOLDS, shuffle=True, random_state=SEED)
-    for fold_idx, (train_files, valid_files) in enumerate(cv.split(files, np.arange(N_FOLDS))):
+    n_folds = 5
+    cv = KFold(n_folds, shuffle=True, random_state=SEED)
+    for fold_idx, (train_files, valid_files) in enumerate(cv.split(files, np.arange(n_folds))):
         ds_train = get_training_dataset(files[train_files], params["batch_size"])
-        NUM_TRAINING_IMAGES = count_data_items(files[train_files])
-        print("Get ds training, %s images" % NUM_TRAINING_IMAGES)
+        num_training_images = count_data_items(files[train_files])
+        print("Get ds training, %s images" % num_training_images)
 
-        print(f'Dataset: {NUM_TRAINING_IMAGES} training images')
+        print(f'Dataset: {num_training_images} training images')
 
         print("Get ds validation")
         ds_val = get_validation_dataset(files[valid_files], params["batch_size"])
@@ -143,31 +120,16 @@ def main():
         opt = tfx.optimizers.AdamW(weight_decay=params["weight_decay"],
                                    learning_rate=params["lr"])
 
-        model.compile(
-            optimizer=opt,
-            loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
-            metrics=tf.keras.metrics.SparseCategoricalAccuracy()
-        )
+        loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
+        metrics = tf.keras.metrics.SparseCategoricalAccuracy()
 
         callbacks = [
-            tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5),
-            EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91),
-            tf.keras.callbacks.CSVLogger(os.path.join(model_dir, "training_%s.log" % fold_idx)),
-            get_lr_callback(NUM_TRAINING_IMAGES),
+            get_lr_callback(num_training_images),
         ]
 
-        STEPS_PER_EPOCH = NUM_TRAINING_IMAGES // params["batch_size"]
-
-        model.fit(ds_train,
-                  epochs=params["epochs"],
-                  steps_per_epoch=STEPS_PER_EPOCH,
-                  validation_data=ds_val,
-                  callbacks=callbacks,
-                  verbose=params["verbose"]
-                  )
-
-        emb_model.save_weights(os.path.join(model_dir, "fold_" + str(fold_idx)), save_format="h5", overwrite=True)
-        print("Learning rate after training: {.2f}".format(tf.keras.backend.get_value(model.optimizer.lr)))
+        train(params, model, emb_model, opt, loss, metrics, callbacks, ds_train, ds_val,
+                                num_training_images, model_dir,
+                                "fold_" + str(fold_idx))
 
 
 if __name__ == "__main__":
