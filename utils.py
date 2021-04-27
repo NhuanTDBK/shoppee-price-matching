@@ -26,10 +26,13 @@ def get_opt(params):
 def train(params: dict, model: tf.keras.models.Model, emb_model: tf.keras.models.Model,
           optimizer: tf.optimizers.Optimizer,
           loss: tf.keras.losses.Loss, metrics, callbacks, ds_train, ds_val=None, num_training_images=None,
-          model_saved_dir=None, model_name=None, checkpoint_dir='ckpt'):
+          model_saved_dir=None, model_name=None):
     ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
-    ckpt_manager = tf.train.CheckpointManager(ckpt, os.path.join(model_saved_dir, checkpoint_dir, model_name),
-                                              max_to_keep=2,)
+
+    ckpt_dir = os.path.join(model_saved_dir, model_name)
+    os.makedirs(ckpt_dir,exist_ok=True)
+
+    ckpt_manager = tf.train.CheckpointManager(ckpt,ckpt_dir ,max_to_keep=2,)
 
     model.compile(
         optimizer=optimizer,
