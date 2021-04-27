@@ -51,16 +51,19 @@ def train(params: dict, model: tf.keras.models.Model, emb_model: tf.keras.models
         callbacks.append(CheckpointCallback(ckpt_manager))
 
     steps_per_epoch = num_training_images // params["batch_size"]
+    epochs = params["epochs"]
 
     if ckpt_manager.latest_checkpoint:
         print("Restored from: ", ckpt_manager.latest_checkpoint)
         ckpt.restore(ckpt_manager.latest_checkpoint)
+        epochs -= tf.keras.backend.get_value(ckpt.epoch)
     else:
         print("Start from scratch")
 
-    epochs = ckpt.epoch
+
+
     model.fit(ds_train,
-              epochs=params["epochs"],
+              epochs=epochs,
               steps_per_epoch=steps_per_epoch,
               validation_data=ds_val,
               callbacks=callbacks)
