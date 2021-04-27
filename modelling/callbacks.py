@@ -228,7 +228,6 @@ class CheckpointCallback(tf.keras.callbacks.Callback):
         print("Saved checkpoint: {}".format(saved_path))
 
 
-
 if __name__ == '__main__':
     params = {
         "batch_size": 32,
