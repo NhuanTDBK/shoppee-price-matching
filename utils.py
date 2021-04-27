@@ -1,6 +1,7 @@
+import gc
 import os
 import random
-import gc
+import re
 
 import tensorflow_addons as tfx
 
@@ -23,16 +24,47 @@ def get_opt(params):
         return tf.keras.optimizers.SGD(learning_rate=params["lr"], momentum=params["momentum"], )
 
 
-def train(params: dict, model: tf.keras.models.Model, emb_model: tf.keras.models.Model,
+def get_tpu_strategy():
+    resolver = tf.distribute.cluster_resolver.TPUClusterResolver(tpu='')
+    tf.config.experimental_connect_to_cluster(resolver)
+    # This is the TPU initialization code that has to be at the beginning.
+    tf.tpu.experimental.initialize_tpu_system(resolver)
+    print("All devices: ", tf.config.list_logical_devices('TPU'))
+
+    strategy = tf.distribute.TPUStrategy(resolver)
+
+    return strategy
+
+
+def get_gpu_strategy():
+    mirrored_strategy = tf.distribute.MirroredStrategy()
+    return mirrored_strategy
+
+
+def count_data_items(filenames):
+    # The number of data items is written in the name of the .tfrec files, i.e. flowers00-230.tfrec = 230 data items
+    n = [int(re.compile(r"-([0-9]*)\.").search(filename).group(1)) for filename in filenames]
+    return np.sum(n)
+
+def train(params: dict, model_fn,
           optimizer: tf.optimizers.Optimizer,
           loss: tf.keras.losses.Loss, metrics, callbacks, ds_train, ds_val=None, num_training_images=None,
           model_saved_dir=None, model_name=None):
+    if params["use_tpu"]:
+        strategy = get_tpu_strategy()
+    else:
+        strategy = get_gpu_strategy()
+
+    with strategy.scope():
+        model, emb_model = model_fn()
+        model.compile(optimizer, loss, metrics)
+
     ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
 
     ckpt_dir = os.path.join(model_saved_dir, model_name)
-    os.makedirs(ckpt_dir,exist_ok=True)
+    os.makedirs(ckpt_dir, exist_ok=True)
 
-    ckpt_manager = tf.train.CheckpointManager(ckpt,ckpt_dir ,max_to_keep=2,)
+    ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=2, )
 
     model.compile(
         optimizer=optimizer,
@@ -62,8 +94,6 @@ def train(params: dict, model: tf.keras.models.Model, emb_model: tf.keras.models
         epochs -= tf.keras.backend.get_value(ckpt.epoch)
     else:
         print("Start from scratch")
-
-
 
     model.fit(ds_train,
               epochs=epochs,

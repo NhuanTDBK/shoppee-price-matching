@@ -1,16 +1,12 @@
 import argparse
 import glob
-import os
-import re
 
-import tensorflow_addons as tfx
 from sklearn.model_selection import KFold
 
 from features.img import *
 from features.pool import LocalGlobalExtractor
-from modelling.callbacks import *
 from modelling.metrics import MetricLearner
-from utils import seed_everything, train
+from utils import *
 
 
 def parse_args():
@@ -35,6 +31,8 @@ def parse_args():
     parser.add_argument("--resume_fold", type=int, default=None)
     parser.add_argument("--image_size", type=int, default=512)
 
+    parser.add_argument("--use_tpu", type=bool, default=False)
+
     args = parser.parse_args()
     params = vars(args)
     return params
@@ -44,10 +42,10 @@ params = parse_args()
 
 SEED = 4111
 N_CLASSES = 11014
-IMAGE_SIZE = (params["image_size"],params["image_size"])
+IMAGE_SIZE = (params["image_size"], params["image_size"])
 
 saved_path = "/content/drive/MyDrive/shopee-price"
-model_dir = os.path.join(saved_path, "saved", params["model_name"],params["image_size"])
+model_dir = os.path.join(saved_path, "saved", params["model_name"], params["image_size"])
 os.makedirs(model_dir, exist_ok=True)
 
 image_extractor_mapper = {
@@ -83,12 +81,6 @@ def create_model():
     return model, emb_model
 
 
-def count_data_items(filenames):
-    # The number of data items is written in the name of the .tfrec files, i.e. flowers00-230.tfrec = 230 data items
-    n = [int(re.compile(r"-([0-9]*)\.").search(filename).group(1)) for filename in filenames]
-    return np.sum(n)
-
-
 def get_lr_callback(total_size):
     steps_per_epoch = total_size / params["batch_size"]
     total_steps = int(params["epochs"] * steps_per_epoch)
@@ -98,26 +90,6 @@ def get_lr_callback(total_size):
                                       steps_per_epoch=steps_per_epoch,
                                       warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
 
-
-# def get_lr_callback():
-#     lr_start = 0.000001
-#     lr_max = 0.000005 * params["batch_size"]
-#     lr_min = 0.000001
-#     lr_ramp_ep = 5
-#     lr_sus_ep = 0
-#     lr_decay = 0.8
-#
-#     def lrfn(epoch):
-#         if epoch < lr_ramp_ep:
-#             lr = (lr_max - lr_start) / lr_ramp_ep * epoch + lr_start
-#         elif epoch < lr_ramp_ep + lr_sus_ep:
-#             lr = lr_max
-#         else:
-#             lr = (lr_max - lr_min) * lr_decay ** (epoch - lr_ramp_ep - lr_sus_ep) + lr_min
-#         return lr
-#
-#     lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
-#     return lr_callback
 
 def main():
     seed_everything(SEED)
@@ -134,18 +106,17 @@ def main():
         if params["resume_fold"] and params["resume_fold"] != fold_idx:
             continue
 
-        ds_train = get_training_dataset(files[train_files], params["batch_size"],image_size=IMAGE_SIZE)
+        ds_train = get_training_dataset(files[train_files], params["batch_size"], image_size=IMAGE_SIZE)
         num_training_images = count_data_items(files[train_files])
         print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
 
         print(f'Dataset: {num_training_images} training images')
 
         print("Get ds validation")
-        ds_val = get_validation_dataset(files[valid_files], params["batch_size"],image_size=IMAGE_SIZE)
+        ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=IMAGE_SIZE)
 
-        model, emb_model = create_model()
-        opt = tfx.optimizers.AdamW(weight_decay=params["weight_decay"],
-                                   learning_rate=params["lr"])
+        optimizers = tfx.optimizers.AdamW(weight_decay=params["weight_decay"],
+                                          learning_rate=params["lr"])
 
         loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
         metrics = tf.keras.metrics.SparseCategoricalAccuracy()
@@ -155,7 +126,7 @@ def main():
         ]
 
         model_id = "fold_" + str(fold_idx)
-        train(params, model, emb_model, opt, loss, metrics, callbacks, ds_train, ds_val,
+        train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val,
               num_training_images, model_dir, model_id)
 
 
