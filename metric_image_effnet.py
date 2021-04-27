@@ -30,8 +30,8 @@ def parse_args():
     parser.add_argument("--verbose", type=int, default=0)
     parser.add_argument("--resume_fold", type=int, default=None)
     parser.add_argument("--image_size", type=int, default=512)
-
     parser.add_argument("--use_tpu", type=bool, default=False)
+    parser.add_argument("--transfer", type=bool, default=False)
 
     args = parser.parse_args()
     params = vars(args)
@@ -54,11 +54,12 @@ def create_model():
 
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
-    effnet = tf.keras.applications.EfficientNetB7(include_top=False)
+    effnet = tf.keras.applications.EfficientNetB7(include_top=False,weights="imagenet")
 
     print(effnet.output_shape)
-    for layer in effnet.layers:
-        layer.trainable = True
+    if params["transfer"]:
+        for layer in effnet.layers:
+            layer.trainable = True
 
     x = effnet(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)

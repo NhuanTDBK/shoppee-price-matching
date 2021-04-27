@@ -51,6 +51,7 @@ def load_dataset(filenames, ordered=False, image_size=(512, 512)):
         ignore_order.experimental_deterministic = False
 
     dataset = tf.data.TFRecordDataset(filenames, num_parallel_reads=AUTO)
+    dataset = dataset.cache()
     dataset = dataset.with_options(ignore_order)
     dataset = dataset.map(lambda example: read_labeled_tfrecord(example, image_size=image_size),
                           num_parallel_calls=AUTO)

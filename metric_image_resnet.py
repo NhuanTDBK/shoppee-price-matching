@@ -48,10 +48,10 @@ model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["
 os.makedirs(model_dir, exist_ok=True)
 
 image_extractor_mapper = {
-    "resnet50": tf.keras.applications.ResNet50(include_top=False, weights="imagenet"),
-    "resnet150": tf.keras.applications.ResNet152(include_top=False, weights="imagenet"),
-    "resnet150_v2": tf.keras.applications.ResNet152V2(include_top=False, weights="imagenet"),
-    "inception_resnet_v2": tf.keras.applications.InceptionResNetV2(include_top=False, weights="imagenet")
+    "resnet50": tf.keras.applications.ResNet50,
+    "resnet150": tf.keras.applications.ResNet152,
+    "resnet150_v2": tf.keras.applications.ResNet152V2,
+    "inception_resnet_v2": tf.keras.applications.InceptionResNetV2
 
 }
 
@@ -61,7 +61,7 @@ def create_model():
 
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
-    resnet = image_extractor_mapper[params["model_name"]]
+    resnet = image_extractor_mapper[params["model_name"]](include_top=False, weights="imagenet")
 
     print(resnet.output_shape)
     for layer in resnet.layers:
