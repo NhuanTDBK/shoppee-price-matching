@@ -45,16 +45,8 @@ N_CLASSES = 11014
 IMAGE_SIZE = (params["image_size"], params["image_size"])
 
 saved_path = "/content/drive/MyDrive/shopee-price"
-model_dir = os.path.join(saved_path, "saved", params["model_name"], params["image_size"])
+model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["image_size"]))
 os.makedirs(model_dir, exist_ok=True)
-
-image_extractor_mapper = {
-    "resnet50": tf.keras.applications.ResNet50(include_top=False, weights="imagenet"),
-    "resnet150": tf.keras.applications.ResNet152(include_top=False, weights="imagenet"),
-    "resnet150_v2": tf.keras.applications.ResNet152V2(include_top=False, weights="imagenet"),
-    "inception_resnet_v2": tf.keras.applications.InceptionResNetV2(include_top=False, weights="imagenet")
-
-}
 
 
 def create_model():

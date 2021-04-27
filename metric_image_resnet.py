@@ -44,7 +44,7 @@ N_CLASSES = 11014
 IMAGE_SIZE = (params["image_size"], params["image_size"])
 
 saved_path = "/content/drive/MyDrive/shopee-price"
-model_dir = os.path.join(saved_path, "saved", params["model_name"], params["image_size"])
+model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["image_size"]))
 os.makedirs(model_dir, exist_ok=True)
 
 image_extractor_mapper = {
