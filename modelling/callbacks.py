@@ -192,7 +192,7 @@ class WarmUpCosineDecayScheduler(keras.callbacks.Callback):
         print("""
             Warmup step: %s,
             Warmup learning rate: %s
-        """%(self.warmup_steps, self.warmup_learning_rate))
+        """ % (self.warmup_steps, self.warmup_learning_rate))
         self.steps_per_epoch = steps_per_epoch
 
     def on_batch_end(self, batch, logs=None):
@@ -214,7 +214,7 @@ class WarmUpCosineDecayScheduler(keras.callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         print('\n After Epoch %05d: setting learning rate to %s.' % (
-        self.global_step + 1, K.get_value(self.model.optimizer.lr)))
+            self.global_step + 1, K.get_value(self.model.optimizer.lr)))
 
 
 class CheckpointCallback(tf.keras.callbacks.Callback):
@@ -223,7 +223,10 @@ class CheckpointCallback(tf.keras.callbacks.Callback):
         self.ckpt_manager = ckpt_manager
 
     def on_epoch_end(self, epoch, logs=None):
-        self.ckpt_manager.save(epoch)
+        self.ckpt_manager.checkpoint.epoch.assign_add(1)
+        saved_path = self.ckpt_manager.save()
+        print("Saved checkpoint: {}".format(saved_path))
+
 
 
 if __name__ == '__main__':
