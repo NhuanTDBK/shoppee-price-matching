@@ -16,7 +16,7 @@ from utils import seed_everything, train
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--max_len", type=int, default=70)
-    parser.add_argument("--model_name", type=str, default='resnet50')
+    parser.add_argument("--model_name", type=str, default='effb7')
     parser.add_argument("--epochs", type=int, default=25)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--margin", type=float, default=0.3)
@@ -30,7 +30,6 @@ def parse_args():
     parser.add_argument("--l2_wd", type=float, default=1e-5)
     parser.add_argument("--metric", type=str, default="adacos")
     parser.add_argument("--input_path", type=str)
-    parser.add_argument("--smooth_ce", type=float, default=0.0)
     parser.add_argument("--warmup_epoch", type=int, default=10)
     parser.add_argument("--verbose", type=int, default=0)
     parser.add_argument("--resume_fold", type=int, default=None)
@@ -65,13 +64,13 @@ def create_model():
 
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
-    resnet = image_extractor_mapper[params["model_name"]]
+    effnet = tf.keras.applications.EfficientNetB7(include_top=False)
 
-    print(resnet.output_shape)
-    for layer in resnet.layers:
+    print(effnet.output_shape)
+    for layer in effnet.layers:
         layer.trainable = True
 
-    x = resnet(inp)
+    x = effnet(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
 
     x1 = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])([emb, labels_onehot])

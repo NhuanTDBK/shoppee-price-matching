@@ -34,10 +34,10 @@ def decode_image(image_data, IMAGE_SIZE=(512, 512)):
 
 
 # This function parse our images and also get the target variable
-def read_labeled_tfrecord(example):
+def read_labeled_tfrecord(example, image_size=(512, 512)):
     example = tf.io.parse_single_example(example, image_feature_description)
     posting_id = example['posting_id']
-    image = decode_image(example['image'])
+    image = decode_image(example['image'], image_size)
     #     label_group = tf.one_hot(tf.cast(example['label_group'], tf.int32), depth = N_CLASSES)
     label_group = tf.cast(example['label_group'], tf.int32)
     matches = example['matches']
@@ -45,21 +45,21 @@ def read_labeled_tfrecord(example):
 
 
 # This function loads TF Records and parse them into tensors
-def load_dataset(filenames, ordered=False):
+def load_dataset(filenames, ordered=False, image_size=(512, 512)):
     ignore_order = tf.data.Options()
     if not ordered:
         ignore_order.experimental_deterministic = False
 
     dataset = tf.data.TFRecordDataset(filenames, num_parallel_reads=AUTO)
     dataset = dataset.with_options(ignore_order)
-    dataset = dataset.map(read_labeled_tfrecord, num_parallel_calls=AUTO)
-    # dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
+    dataset = dataset.map(lambda example: read_labeled_tfrecord(example, image_size=image_size),
+                          num_parallel_calls=AUTO)
 
     return dataset
 
 
-def get_training_dataset(filenames, batch_size, ordered=False):
-    dataset = load_dataset(filenames, ordered=ordered)
+def get_training_dataset(filenames, batch_size, ordered=False, image_size=(512, 512)):
+    dataset = load_dataset(filenames, ordered=ordered, image_size=image_size)
     dataset = dataset.map(data_augment, num_parallel_calls=AUTO)
     dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
     dataset = dataset.repeat()
@@ -73,8 +73,8 @@ def get_training_dataset(filenames, batch_size, ordered=False):
 
 
 # This function is to get our validation tensors
-def get_validation_dataset(filenames, batch_size, ordered=True):
-    dataset = load_dataset(filenames, ordered=ordered)
+def get_validation_dataset(filenames, batch_size, ordered=True, image_size=(512, 512)):
+    dataset = load_dataset(filenames, ordered=ordered, image_size=image_size)
     dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(AUTO)
