@@ -50,13 +50,22 @@ saved_path = "/content/drive/MyDrive/shopee-price"
 model_dir = os.path.join(saved_path, "saved", params["model_name"])
 os.makedirs(model_dir, exist_ok=True)
 
+image_extractor_mapper = {
+    "resnet50": tf.keras.applications.ResNet50(include_top=False, weights="imagenet"),
+    "resnet150": tf.keras.applications.ResNet152(include_top=False, weights="imagenet"),
+    "resnet150_v2": tf.keras.applications.ResNet152V2(include_top=False, weights="imagenet"),
+    "inception_resnet_v2": tf.keras.applications.InceptionResNetV2(include_top=False, weights="imagenet")
+
+}
+
 
 def create_model():
     inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
 
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
-    resnet = tf.keras.applications.ResNet50(include_top=False, weights="imagenet")
+    resnet = image_extractor_mapper[params["model_name"]]
+
     print(resnet.output_shape)
     for layer in resnet.layers:
         layer.trainable = True
