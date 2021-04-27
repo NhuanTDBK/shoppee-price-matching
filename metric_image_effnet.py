@@ -110,8 +110,10 @@ def main():
         optimizers = tfx.optimizers.AdamW(weight_decay=params["weight_decay"],
                                           learning_rate=params["lr"])
 
-        loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
-        metrics = tf.keras.metrics.SparseCategoricalAccuracy()
+        # loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
+        # metrics = tf.keras.metrics.SparseCategoricalAccuracy()
+        loss = "sparse_categorical_crossentropy"
+        metrics = "sparse_categorical_crossentropy"
 
         callbacks = [
             get_lr_callback(num_training_images),

@@ -46,18 +46,13 @@ def count_data_items(filenames):
     n = [int(re.compile(r"-([0-9]*)\.").search(filename).group(1)) for filename in filenames]
     return np.sum(n)
 
+
 def train(params: dict, model_fn,
           optimizer: tf.optimizers.Optimizer,
           loss: tf.keras.losses.Loss, metrics, callbacks, ds_train, ds_val=None, num_training_images=None,
           model_saved_dir=None, model_name=None):
-    if params["use_tpu"]:
-        strategy = get_tpu_strategy()
-    else:
-        strategy = get_gpu_strategy()
-
-    with strategy.scope():
-        model, emb_model = model_fn()
-        model.compile(optimizer, loss, metrics)
+    model, emb_model = model_fn()
+    model.compile(optimizer, loss, metrics)
 
     ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
 
