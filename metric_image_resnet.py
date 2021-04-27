@@ -49,6 +49,8 @@ os.makedirs(model_dir, exist_ok=True)
 
 image_extractor_mapper = {
     "resnet50": tf.keras.applications.ResNet50,
+    "resnet101": tf.keras.applications.ResNet101,
+    "resnet101_v2": tf.keras.applications.ResNet101V2,
     "resnet150": tf.keras.applications.ResNet152,
     "resnet150_v2": tf.keras.applications.ResNet152V2,
     "inception_resnet_v2": tf.keras.applications.InceptionResNetV2

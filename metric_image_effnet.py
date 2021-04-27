@@ -53,13 +53,13 @@ def create_model():
 
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
-    effnet = tf.keras.applications.EfficientNetB3(include_top=False,weights="imagenet",)
+    effnet = tf.keras.applications.EfficientNetB3(include_top=False,weights="imagenet",pooling="avg")
 
     print(effnet.output_shape)
 
     x = effnet(inp)
     # emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
-    emb = tf.keras.layers.GlobalAveragePooling1D()(x)
+    emb = tf.keras.layers.GlobalAveragePooling2D()(x)
 
     x1 = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])([emb, labels_onehot])
 
