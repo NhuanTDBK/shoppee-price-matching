@@ -20,6 +20,7 @@ class CosineSimilarity(layers.Layer):
         self.W = self.add_weight(shape=(input_dim, self.num_classes),
                                  initializer='glorot_uniform',
                                  regularizer=tf.keras.regularizers.l2(self.l2_wd),
+                                 name="cosine_w",
                                  trainable=True)
 
     def call(self, inputs, **kwargs):

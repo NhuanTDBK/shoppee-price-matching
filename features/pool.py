@@ -33,7 +33,7 @@ class BertLastHiddenState(tf.keras.layers.Layer):
 
         self.fc = None
         if fc_dim:
-            self.fc = tf.keras.models.Sequential(tf.keras.layers.Dense(self.fc_dim))
+            self.fc = tf.keras.models.Sequential(tf.keras.layers.Dense(self.fc_dim, name="bert_fc"))
         self.multi_sample_dropout = multi_sample_dropout
 
     def call(self, inputs):
@@ -56,11 +56,11 @@ class BertLastHiddenState(tf.keras.layers.Layer):
         if self.multi_sample_dropout and self.fc_dim:
             dense_fc = []
             for p in np.linspace(0.1, 0.5, 5):
-                x1 = tf.keras.layers.Dropout(p)(x_pool)
+                x1 = tf.keras.layers.Dropout(p,name="dropout_bert")(x_pool)
                 x1 = self.fc(x1)
                 dense_fc.append(x1)
 
-            out = tf.keras.layers.Average()(dense_fc)
+            out = tf.keras.layers.Average(name="avg_bert")(dense_fc)
         elif not self.multi_sample_dropout and self.fc_dim is not None:
             out = self.fc(x_pool)
         else:
@@ -199,9 +199,9 @@ class LocalGlobalExtractor(tf.keras.layers.Layer):
         super().__init__(*args, **kwargs)
         self.fts = tf.keras.models.Sequential(
             [
-                tf.keras.layers.Dropout(dropout_rate),
-                tf.keras.layers.Dense(fc_dim),
-                tf.keras.layers.BatchNormalization()
+                tf.keras.layers.Dropout(dropout_rate,name="dropout_lb"),
+                tf.keras.layers.Dense(fc_dim,name="fc_lb"),
+                tf.keras.layers.BatchNormalization(name="bn_lb")
             ])
         self.pool_layer = pooling_dict[pool]()
 

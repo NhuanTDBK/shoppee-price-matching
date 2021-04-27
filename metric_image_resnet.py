@@ -56,13 +56,7 @@ def create_model():
 
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
-    if params["smooth_ce"]:
-        smooth_pos = 1.0 - labels_onehot
-        smooth_neg = params["smooth_ce"] / N_CLASSES
-
-        labels_onehot = labels_onehot * smooth_pos + smooth_neg
-
-    resnet = tf.keras.applications.ResNet50(include_top=False, weights="imagenet", )
+    resnet = tf.keras.applications.ResNet50(include_top=False, weights="imagenet")
     print(resnet.output_shape)
     for layer in resnet.layers:
         layer.trainable = True
