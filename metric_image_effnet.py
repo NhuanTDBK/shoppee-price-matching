@@ -121,9 +121,8 @@ def main():
         ]
 
         model_id = "fold_" + str(fold_idx)
-        # train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val,
-        #       num_training_images, model_dir, model_id)
-        train_strategy(params,create_model,callbacks,ds_train,ds_val,num_training_images,model_dir,model_id)
+        train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val,
+              num_training_images, model_dir, model_id)
 
 
 if __name__ == "__main__":
