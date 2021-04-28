@@ -1,3 +1,5 @@
+import glob
+
 import numpy as np
 # from keras.callbacks import Callback
 import tensorflow as tf
@@ -218,13 +220,16 @@ class WarmUpCosineDecayScheduler(keras.callbacks.Callback):
 
 
 class CheckpointCallback(tf.keras.callbacks.Callback):
-    def __init__(self, ckpt_manager: tf.train.CheckpointManager, period: int=5):
+    def __init__(self, ckpt_manager: tf.train.CheckpointManager, period: int = 5):
         super(CheckpointCallback, self).__init__()
         self.ckpt_manager = ckpt_manager
         self.period = period
 
     def on_epoch_end(self, epoch, logs=None):
         if epoch % self.period == 0:
+            for f in glob.glob(self.ckpt_manager.directory + "/ckpt-*"):
+                open(f, "w").close()
+
             self.ckpt_manager.checkpoint.epoch.assign_add(1)
             saved_path = self.ckpt_manager.save()
             print("Saved checkpoint: {}".format(saved_path))
