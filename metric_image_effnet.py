@@ -64,7 +64,7 @@ def create_model():
     inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
-    effnet = image_extractor_mapper(include_top=False, weights="imagenet", )
+    effnet = image_extractor_mapper[params["model_name"]](include_top=False, weights="imagenet", )
 
     print(effnet.output_shape)
 
