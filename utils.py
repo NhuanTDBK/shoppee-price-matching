@@ -47,6 +47,12 @@ def count_data_items(filenames):
     return np.sum(n)
 
 
+def get_disk_path(is_online=False):
+    if is_online:
+        return "/content/drive/MyDrive/shopee-price"
+
+    return "model_bucket"
+
 def train(params: dict, model_fn,
           optimizer: tf.optimizers.Optimizer,
           loss: tf.keras.losses.Loss, metrics, callbacks, ds_train, ds_val=None, num_training_images=None,

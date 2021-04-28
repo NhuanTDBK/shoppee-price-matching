@@ -16,17 +16,9 @@ from dataloader.semi_loader import RandomTextSemiLoader, RandomSemiHardNegativeL
 from features.pool import BertLastHiddenState
 from modelling.dist import pairwise_dist
 from modelling.loss import contrastive_loss
+from utils import *
 
 
-#params = {
-#     "N_CLASSES": 11014,
-#     "max_len": 70,
-#     "model_name": 'jplu/tf-xlm-roberta-base',
-#     "epochs": 5,
-#     "batch_size": 16,
-#     "LAST_HIDDEN_STATES": 3,
-#     "DRIVE_PATH": "/content/drive/MyDrive/shopee-price"
-# }
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--max_len", type=int, default=70)
@@ -49,6 +41,7 @@ def parse_args():
     parser.add_argument("--verbose", type=int, default=0)
     parser.add_argument("--resume_fold", type=int, default=None)
     parser.add_argument("--image_size", type=int, default=512)
+    parser.add_argument("--is_online", type=bool, default=True)
 
     args = parser.parse_args()
     params = vars(args)
@@ -66,7 +59,7 @@ config = transformers.XLMRobertaConfig.from_pretrained(params["model_name"])
 config.output_hidden_states = True
 tokenizer = transformers.XLMRobertaTokenizer.from_pretrained(params["model_name"])
 
-saved_path = "/content/drive/MyDrive/shopee-price"
+saved_path = get_disk_path(params["is_online"])
 model_dir = os.path.join(saved_path, "saved",params["model_name"])
 os.makedirs(model_dir, exist_ok=True)
 
