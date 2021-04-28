@@ -51,12 +51,20 @@ saved_path = params["saved_path"]
 model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["image_size"]))
 os.makedirs(model_dir, exist_ok=True)
 
+image_extractor_mapper = {
+    "b0": tf.keras.applications.EfficientNetB0,
+    "b1": tf.keras.applications.EfficientNetB1,
+    "b2": tf.keras.applications.EfficientNetB2,
+    "b3": tf.keras.applications.EfficientNetB3,
+    "b4": tf.keras.applications.EfficientNetB4,
+    "b5": tf.keras.applications.EfficientNetB5
+}
 
 def create_model():
     inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
-    effnet = tf.keras.applications.EfficientNetB3(include_top=False, weights="imagenet", )
+    effnet = image_extractor_mapper(include_top=False, weights="imagenet", )
 
     print(effnet.output_shape)
 
