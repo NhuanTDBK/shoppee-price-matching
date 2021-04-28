@@ -55,7 +55,7 @@ def train(params: dict, model_fn,
     ckpt_dir = os.path.join(model_saved_dir, model_name)
     os.makedirs(ckpt_dir, exist_ok=True)
 
-    ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=2, )
+    ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=1, )
 
     model.compile(
         optimizer=optimizer,
@@ -74,7 +74,7 @@ def train(params: dict, model_fn,
         callbacks.append(tf.keras.callbacks.CSVLogger(os.path.join(model_saved_dir, "training_%s.log" % model_name)), )
 
     if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]):
-        callbacks.append(CheckpointCallback(ckpt_manager))
+        callbacks.append(CheckpointCallback(ckpt_manager,params["check_period"]))
 
     steps_per_epoch = num_training_images // params["batch_size"]
     epochs = params["epochs"]
@@ -152,3 +152,6 @@ def train_strategy(params: dict, model_fn, callbacks, ds_train, ds_val=None, num
     del model, emb_model
     gc.collect()
     # return model, emb_model, optimizer, loss, metrics
+
+# def average_query_expansion(query_vecs, total_vecs, top_k= 5):
+#

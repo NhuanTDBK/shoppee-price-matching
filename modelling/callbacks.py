@@ -218,14 +218,16 @@ class WarmUpCosineDecayScheduler(keras.callbacks.Callback):
 
 
 class CheckpointCallback(tf.keras.callbacks.Callback):
-    def __init__(self, ckpt_manager: tf.train.CheckpointManager):
+    def __init__(self, ckpt_manager: tf.train.CheckpointManager, period: int=5):
         super(CheckpointCallback, self).__init__()
         self.ckpt_manager = ckpt_manager
+        self.period = period
 
     def on_epoch_end(self, epoch, logs=None):
-        self.ckpt_manager.checkpoint.epoch.assign_add(1)
-        saved_path = self.ckpt_manager.save()
-        print("Saved checkpoint: {}".format(saved_path))
+        if epoch % self.period == 0:
+            self.ckpt_manager.checkpoint.epoch.assign_add(1)
+            saved_path = self.ckpt_manager.save()
+            print("Saved checkpoint: {}".format(saved_path))
 
 
 if __name__ == '__main__':

@@ -31,6 +31,8 @@ def parse_args():
     parser.add_argument("--verbose", type=int, default=0)
     parser.add_argument("--resume_fold", type=int, default=None)
     parser.add_argument("--image_size", type=int, default=512)
+    parser.add_argument("--check_period", type=int, default=5)
+    parser.add_argument("--saved_path", type=str, default=get_disk_path())
 
     args = parser.parse_args()
     params = vars(args)
@@ -43,7 +45,7 @@ SEED = 4111
 N_CLASSES = 11014
 IMAGE_SIZE = (params["image_size"], params["image_size"])
 
-saved_path = "/content/drive/MyDrive/shopee-price"
+saved_path = params["saved_path"]
 model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["image_size"]))
 os.makedirs(model_dir, exist_ok=True)
 
