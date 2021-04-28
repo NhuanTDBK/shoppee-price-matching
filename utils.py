@@ -3,6 +3,8 @@ import os
 import random
 import re
 
+import tensorflow_addons as tfx
+
 from modelling.callbacks import *
 
 
@@ -37,11 +39,8 @@ def count_data_items(filenames):
     return np.sum(n)
 
 
-def get_disk_path(is_online=False):
-    if is_online:
-        return "/content/drive/MyDrive/shopee-price"
-
-    return "model_bucket"
+def get_disk_path():
+    return "/content/drive/MyDrive/shopee-price"
 
 
 def train(params: dict, model_fn,
@@ -64,6 +63,61 @@ def train(params: dict, model_fn,
         metrics=metrics
     )
 
+    if not callbacks:
+        callbacks = []
+
+    if not any([isinstance(cb, EarlyStoppingByLossVal) for cb in callbacks]):
+        callbacks.append(EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91), )
+    if not any([isinstance(cb, tf.keras.callbacks.TensorBoard) for cb in callbacks]):
+        callbacks.append(tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5, ))
+    if not any([isinstance(cb, tf.keras.callbacks.CSVLogger) for cb in callbacks]):
+        callbacks.append(tf.keras.callbacks.CSVLogger(os.path.join(model_saved_dir, "training_%s.log" % model_name)), )
+
+    if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]):
+        callbacks.append(CheckpointCallback(ckpt_manager))
+
+    steps_per_epoch = num_training_images // params["batch_size"]
+    epochs = params["epochs"]
+
+    if ckpt_manager.latest_checkpoint:
+        print("Restored from: ", ckpt_manager.latest_checkpoint)
+        ckpt.restore(ckpt_manager.latest_checkpoint)
+        epochs -= tf.keras.backend.get_value(ckpt.epoch)
+    else:
+        print("Start from scratch")
+
+    model.fit(ds_train,
+              epochs=epochs,
+              steps_per_epoch=steps_per_epoch,
+              validation_data=ds_val,
+              callbacks=callbacks)
+
+    emb_model.save_weights(os.path.join(model_saved_dir, "emb_" + str(model_name)), save_format="h5", overwrite=True)
+
+    del model, emb_model
+    gc.collect()
+    # return model, emb_model, optimizer, loss, metrics
+
+
+def train_strategy(params: dict, model_fn, callbacks, ds_train, ds_val=None, num_training_images=None,
+                   model_saved_dir=None, model_name=None):
+    model, emb_model = model_fn()
+    strategy = get_gpu_strategy()
+
+    with strategy.scope():
+        optimizer = tfx.optimizers.AdamW(weight_decay=params["weight_decay"],
+                                         learning_rate=params["lr"])
+
+        loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
+        metrics = tf.keras.metrics.SparseCategoricalAccuracy()
+        model.compile(optimizer, loss, metrics)
+
+    ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
+
+    ckpt_dir = os.path.join(model_saved_dir, model_name)
+    os.makedirs(ckpt_dir, exist_ok=True)
+
+    ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=2, )
     if not callbacks:
         callbacks = []
 
