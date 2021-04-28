@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument("--verbose", type=int, default=0)
     parser.add_argument("--resume_fold", type=int, default=None)
     parser.add_argument("--image_size", type=int, default=512)
-    parser.add_argument("--use_tpu", type=bool, default=False)
+    parser.add_argument("--freeze", type=bool, default=False)
 
     args = parser.parse_args()
     params = vars(args)
@@ -55,6 +55,10 @@ def create_model():
     effnet = tf.keras.applications.EfficientNetB3(include_top=False, weights="imagenet", )
 
     print(effnet.output_shape)
+
+    if params["freeze"]:
+        for layer in effnet.layers:
+            layer.trainable = False
 
     x = effnet(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)

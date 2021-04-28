@@ -1,6 +1,7 @@
 import datetime
 import gc
 import logging
+import argparse
 import os
 from typing import Union
 
@@ -10,46 +11,77 @@ import transformers
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
+import tensorflow as tf
 from dataloader.semi_loader import RandomTextSemiLoader
 from features.pool import BertLastHiddenState
 from modelling.dist import pairwise_dist
 from modelling.loss import contrastive_loss
-from modelling.pooling import *
 
-params = {
-    "N_CLASSES": 11014,
-    "MAX_LEN": 70,
-    "MODEL_NAME": 'jplu/tf-xlm-roberta-base',
-    "EPOCHS": 5,
-    "BATCH_SIZE": 16,
-    "LAST_HIDDEN_STATES": 3,
-    "DRIVE_PATH": "/content/drive/MyDrive/shopee-price"
-}
+
+#params = {
+#     "N_CLASSES": 11014,
+#     "max_len": 70,
+#     "model_name": 'jplu/tf-xlm-roberta-base',
+#     "epochs": 5,
+#     "batch_size": 16,
+#     "LAST_HIDDEN_STATES": 3,
+#     "DRIVE_PATH": "/content/drive/MyDrive/shopee-price"
+# }
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--max_len", type=int, default=70)
+    parser.add_argument("--model_name", type=str, default='resnet50')
+    parser.add_argument("--epochs", type=int, default=25)
+    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--margin", type=float, default=0.3)
+    parser.add_argument("--s", type=float, default=30)
+    parser.add_argument("--pool", type=str, default="gem")
+    parser.add_argument("--dropout", type=float, default=0.5)
+    parser.add_argument("--last_hidden_states", type=int, default=3)
+    parser.add_argument("--fc_dim", type=int, default=512)
+    parser.add_argument("--lr", type=float, default=0.00001)
+    parser.add_argument("--weight_decay", type=float, default=1e-5)
+    parser.add_argument("--l2_wd", type=float, default=1e-5)
+    parser.add_argument("--metric", type=str, default="adacos")
+    parser.add_argument("--input_path", type=str)
+    parser.add_argument("--smooth_ce", type=float, default=0.0)
+    parser.add_argument("--warmup_epoch", type=int, default=10)
+    parser.add_argument("--verbose", type=int, default=0)
+    parser.add_argument("--resume_fold", type=int, default=None)
+    parser.add_argument("--image_size", type=int, default=512)
+
+    args = parser.parse_args()
+    params = vars(args)
+    return params
+
+
+params = parse_args()
 
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("n")
 
-config = transformers.XLMRobertaConfig.from_pretrained(params["MODEL_NAME"])
+config = transformers.XLMRobertaConfig.from_pretrained(params["model_name"])
 config.output_hidden_states = True
-tokenizer = transformers.XLMRobertaTokenizer.from_pretrained(params["MODEL_NAME"])
+tokenizer = transformers.XLMRobertaTokenizer.from_pretrained(params["model_name"])
 
-model_dir = os.path.join(params["DRIVE_PATH"], "saved",params["MODEL_NAME"])
+saved_path = "/content/drive/MyDrive/shopee-price"
+model_dir = os.path.join(saved_path, "saved",params["model_name"])
 os.makedirs(model_dir, exist_ok=True)
 
 
 def encoder(titles: Union[str]):
     ct = len(titles)
 
-    input_ids = np.ones((ct, params["MAX_LEN"]), dtype='int32')
-    att_masks = np.zeros((ct, params["MAX_LEN"]), dtype='int32')
-    token_type_ids = np.zeros((ct, params["MAX_LEN"]), dtype='int32')
+    input_ids = np.ones((ct, params["max_len"]), dtype='int32')
+    att_masks = np.zeros((ct, params["max_len"]), dtype='int32')
+    token_type_ids = np.zeros((ct, params["max_len"]), dtype='int32')
 
     for i in range(len(titles)):
         enc = tokenizer.encode_plus(titles[i],
                                     padding="max_length",
-                                    max_length=params["MAX_LEN"],
+                                    max_length=params["max_len"],
                                     truncation=True,
                                     add_special_tokens=True,
                                     return_tensors='tf',
@@ -78,7 +110,7 @@ def create_tf_summary_writer():
 
 
 def create_checkpoint(model, optimizer):
-    checkpoint_prefix = os.path.join(params["DRIVE_PATH"], "tmp/training_checkpoints", params["MODEL_NAME"], "ckpt")
+    checkpoint_prefix = os.path.join(saved_path, "tmp/training_checkpoints", params["model_name"], "ckpt")
 
     # Create a Checkpoint that will manage two objects with trackable state,
     # one we name "optimizer" and the other we name "model".
@@ -87,18 +119,18 @@ def create_checkpoint(model, optimizer):
 
 
 def create_model():
-    word_model = transformers.TFAutoModel.from_pretrained(params["MODEL_NAME"], config=config)
+    word_model = transformers.TFAutoModel.from_pretrained(params["model_name"], config=config)
 
-    ids = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
-    att = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
-    tok = tf.keras.layers.Input((params["MAX_LEN"],), dtype=tf.int32)
+    ids = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
+    att = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
+    tok = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
     x1 = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
     embedding = BertLastHiddenState(multi_sample_dropout=True)(x1)
     embedding_norm = tf.math.l2_normalize(embedding, axis=1)
 
     model = tf.keras.models.Model(inputs=[ids, att, tok], outputs=[embedding_norm])
 
-    optimizer = tf.keras.optimizers.Adam()
+    optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
     loss_fn = contrastive_loss
 
     model.compile(optimizer=optimizer, loss=loss_fn)
@@ -114,7 +146,7 @@ def main():
     X_title = df["title"].to_numpy()
     generator = RandomTextSemiLoader(df["title"].to_numpy(),
                                      df["label"].to_numpy(),
-                                     batch_size=params["BATCH_SIZE"],
+                                     batch_size=params["batch_size"],
                                      shuffle=True)
 
     model, optimizer, loss_fn = create_model()
@@ -144,8 +176,8 @@ def main():
 
         return loss_value
 
-    for epoch in range(params["EPOCHS"]):
-        print("Start epoch {}/{} \n".format((epoch + 1), params["EPOCHS"]))
+    for epoch in range(params["epochs"]):
+        print("Start epoch {}/{} \n".format((epoch + 1), params["epochs"]))
 
         steps_per_epoch = len(generator)
         pbar = tf.keras.utils.Progbar(steps_per_epoch)

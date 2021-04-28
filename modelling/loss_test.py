@@ -9,4 +9,4 @@ if __name__ == "__main__":
     y_true = tf.constant([0,1,0],dtype=tf.int8)
 
     t = ContrastiveLoss()
-    print(t.call(y_true, y_pred).numpy())
+    print(t.call(y_true, ).numpy())
