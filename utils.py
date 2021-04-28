@@ -3,8 +3,6 @@ import os
 import random
 import re
 
-import tensorflow_addons as tfx
-
 from modelling.callbacks import *
 
 
@@ -14,14 +12,6 @@ def seed_everything(seed):
     np.random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
     tf.random.set_seed(seed)
-
-
-def get_opt(params):
-    if params["name"] == "adam":
-        return tfx.optimizers.AdamW(learning_rate=params["lr"], weight_decay=params["wd"])
-
-    elif params["name"] == "sgd":
-        return tf.keras.optimizers.SGD(learning_rate=params["lr"], momentum=params["momentum"], )
 
 
 def get_tpu_strategy():
@@ -52,6 +42,7 @@ def get_disk_path(is_online=False):
         return "/content/drive/MyDrive/shopee-price"
 
     return "model_bucket"
+
 
 def train(params: dict, model_fn,
           optimizer: tf.optimizers.Optimizer,

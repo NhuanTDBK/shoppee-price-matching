@@ -1,18 +1,14 @@
-import datetime
-import gc
-import logging
 import argparse
-import os
+import datetime
+import logging
 from typing import Union
 
-import numpy as np
 import pandas as pd
 import transformers
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
-import tensorflow as tf
-from dataloader.semi_loader import RandomTextSemiLoader, RandomSemiHardNegativeLoader
+from dataloader.semi_loader import RandomSemiHardNegativeLoader
 from features.pool import BertLastHiddenState
 from modelling.dist import pairwise_dist
 from modelling.loss import contrastive_loss
@@ -60,7 +56,7 @@ config.output_hidden_states = True
 tokenizer = transformers.XLMRobertaTokenizer.from_pretrained(params["model_name"])
 
 saved_path = get_disk_path(params["is_online"])
-model_dir = os.path.join(saved_path, "saved",params["model_name"])
+model_dir = os.path.join(saved_path, "saved", params["model_name"])
 os.makedirs(model_dir, exist_ok=True)
 
 
@@ -138,9 +134,9 @@ def main():
     df["label"] = LabelEncoder().fit_transform(df["label_group"].tolist())
     X_title = df["title"].to_numpy()
     generator = RandomSemiHardNegativeLoader(df["title"].to_numpy(),
-                                     df["label"].to_numpy(),
-                                     batch_size=params["batch_size"],
-                                     shuffle=True)
+                                             df["label"].to_numpy(),
+                                             batch_size=params["batch_size"],
+                                             shuffle=True)
 
     model, optimizer, loss_fn = create_model()
     checkpoint, checkpoint_prefix = create_checkpoint(model, optimizer)
@@ -209,7 +205,7 @@ def main():
     train_summary_writer.flush()
     val_summary_writer.flush()
 
-    model.save_weights(os.path.join(model_dir,"model"),save_format="h5",overwrite=True)
+    model.save_weights(os.path.join(model_dir, "model"), save_format="h5", overwrite=True)
 
 
 if __name__ == '__main__':
