@@ -30,6 +30,7 @@ def parse_args():
     parser.add_argument("--verbose", type=int, default=0)
     parser.add_argument("--resume_fold", type=int, default=None)
     parser.add_argument("--image_size", type=int, default=512)
+    parser.add_argument("--upscale_size", type=int, default=512)
     parser.add_argument("--check_period", type=int, default=5)
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
     parser.add_argument("--pretrained_path", type=str)
@@ -44,6 +45,7 @@ params = parse_args()
 SEED = 4111
 N_CLASSES = 11014
 IMAGE_SIZE = (params["image_size"], params["image_size"])
+UPSCALE_SIZE = (params["upscale_size"],params["upscale_size"])
 
 saved_path = params["saved_path"]
 model_dir = os.path.join(saved_path, "saved", params["model_name"] + "_finetune", str(params["image_size"]))
@@ -60,32 +62,36 @@ image_extractor_mapper = {
 
 
 def create_model():
+    inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
+    label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
+    labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
     resnet = image_extractor_mapper[params["model_name"]](include_top=False, weights="imagenet")
-
-    print("Load weights from ", params["pretrained_path"])
-    resnet.load_weights(params["pretrained_path"])
 
     print(resnet.output_shape)
     for layer in resnet.layers:
         layer.trainable = False
 
-    inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
-    inp = tf.keras.layers.Conv2D(3, 1, strides=(2, 2), padding="valid")(inp)
-
     x = resnet(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
 
-    label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
-    labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
+    emb_model = tf.keras.Model(inputs=[inp], outputs=[emb])
+    print("Load weights from ", params["pretrained_path"])
+    emb.load_weights(params["pretrained_path"])
 
+
+    inp_downscale = tf.keras.layers.Input(shape=(*UPSCALE_SIZE,3))
+    x = tf.keras.layers.Conv2D(3,1,strides=(2,2))(inp_downscale)
+    x = resnet(x)
+    emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
     x1 = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])([emb, labels_onehot])
 
-    model = tf.keras.Model(inputs=[inp, label], outputs=[x1])
+    model = tf.keras.Model(inputs=[inp_downscale, label], outputs=[x1])
     model.summary()
 
-    emb_model = tf.keras.Model(inputs=[inp], outputs=[emb])
+
 
     return model, emb_model
+
 
 
 def get_lr_callback(total_size):
@@ -133,14 +139,14 @@ def main():
         if params["resume_fold"] and params["resume_fold"] != fold_idx:
             continue
 
-        ds_train = get_training_dataset(files[train_files], params["batch_size"], image_size=IMAGE_SIZE)
+        ds_train = get_training_dataset(files[train_files], params["batch_size"], image_size=UPSCALE_SIZE)
         num_training_images = count_data_items(files[train_files])
         print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
 
         print(f'Dataset: {num_training_images} training images')
 
         print("Get ds validation")
-        ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=IMAGE_SIZE)
+        ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=UPSCALE_SIZE)
 
         optimizers = tfx.optimizers.AdamW(weight_decay=params["weight_decay"],
                                           learning_rate=params["lr"])
