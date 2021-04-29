@@ -2,6 +2,7 @@ import argparse
 import glob
 
 from sklearn.model_selection import KFold
+import tensorflow_addons as tfx
 
 from features.img import *
 from features.pool import LocalGlobalExtractor

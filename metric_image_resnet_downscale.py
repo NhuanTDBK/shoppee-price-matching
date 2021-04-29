@@ -1,6 +1,7 @@
 import argparse
 
 from sklearn.model_selection import KFold
+import tensorflow_addons as tfx
 
 from features.img import *
 from features.pool import LocalGlobalExtractor
@@ -63,32 +64,32 @@ image_extractor_mapper = {
 
 def create_model():
     inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
+
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
     resnet = image_extractor_mapper[params["model_name"]](include_top=False, weights="imagenet")
 
-    print(resnet.output_shape)
+    x = resnet(inp)
+    emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
+    emb_model = tf.keras.Model(inputs=[inp], outputs=[emb])
+
+    emb_model.load_weights(params["pretrained_path"])
+    del emb_model
+
     for layer in resnet.layers:
         layer.trainable = False
 
-    x = resnet(inp)
-    emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
-
-    emb_model = tf.keras.Model(inputs=[inp], outputs=[emb])
-    print("Load weights from ", params["pretrained_path"])
-    emb.load_weights(params["pretrained_path"])
-
-
-    inp_downscale = tf.keras.layers.Input(shape=(*UPSCALE_SIZE,3))
-    x = tf.keras.layers.Conv2D(3,1,strides=(2,2))(inp_downscale)
+    inp_downscale = tf.keras.layers.Input(shape=(*UPSCALE_SIZE, 3), name='inp1')
+    x = tf.keras.layers.Conv2D(3, 1, strides=(2, 2))(inp_downscale)
     x = resnet(x)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
+
     x1 = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])([emb, labels_onehot])
 
     model = tf.keras.Model(inputs=[inp_downscale, label], outputs=[x1])
     model.summary()
 
-
+    emb_model = tf.keras.Model(inputs=[inp_downscale], outputs=[emb])
 
     return model, emb_model
 
