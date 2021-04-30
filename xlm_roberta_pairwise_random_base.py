@@ -33,6 +33,7 @@ def parse_args():
     parser.add_argument("--resume_fold", type=int, default=None)
     parser.add_argument("--is_online", type=bool, default=True)
     parser.add_argument("--query_size", type=int, default=1000)
+    parser.add_argument("--pool_size", type=int, default=10000)
 
     args = parser.parse_args()
     params = vars(args)
@@ -134,6 +135,7 @@ def main():
                                              df["label"].to_numpy(),
                                              batch_size=params["batch_size"],
                                              qsize=params["query_size"],
+                                             pool_size=params["pool_size"],
                                              shuffle=True)
 
     model, optimizer, loss_fn = create_model()
@@ -204,6 +206,21 @@ def main():
     # val_summary_writer.flush()
 
     # model.save_weights(os.path.join(model_dir, "model"), save_format="h5", overwrite=True)
+    print("Test model")
+
+    X_emb = model.predict(encoder(X_title),batch_size=1024, verbose=1)
+    from sklearn.neighbors import NearestNeighbors
+    nn = NearestNeighbors(n_neighbors=1)
+    nn.fit(X_emb)
+
+    dists, indices = nn.kneighbors(X_emb[0:10])
+    for i in range(len(dists)):
+        print("Query: ",X_title[i])
+        print("Result: {}, dist = {}".format(X_title[indices[i][0]]),X_title[dists[i][0]])
+
+
+
+
 
 
 if __name__ == '__main__':

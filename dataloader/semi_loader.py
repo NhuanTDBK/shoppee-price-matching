@@ -122,7 +122,7 @@ class RandomHardNegativeSemiLoader(object):
         pool_idxs = np.where(self.mask)[0]
         llen_pool_idxs = len(pool_idxs)
 
-        logger.info("Put positive masks: %s", len(self.mask) - llen_pool_idxs)
+        logger.info("Negative masks: %s", llen_pool_idxs)
 
         if llen_pool_idxs >= self.pool_size:
             llen_pool_idxs = self.pool_size
