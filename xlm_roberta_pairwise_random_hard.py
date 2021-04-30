@@ -13,6 +13,7 @@ from features.pool import BertLastHiddenState
 from modelling.dist import pairwise_dist
 from modelling.loss import contrastive_loss
 from utils import *
+from text.extractor import *
 
 
 def parse_args():
@@ -132,6 +133,8 @@ def create_model():
 def main():
     df = pd.read_csv("train.csv")
     df["label"] = LabelEncoder().fit_transform(df["label_group"].tolist())
+    df["title"] = df["title"].map(lambda d: convert_unicode(d.lower()))
+
     X_title = df["title"].to_numpy()
     generator = RandomSemiHardNegativeLoader(df["title"].to_numpy(),
                                              df["label"].to_numpy(),
