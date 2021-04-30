@@ -100,6 +100,64 @@ def train(params: dict, model_fn,
     # return model, emb_model, optimizer, loss, metrics
 
 
+def train_tpu(params: dict, model_fn,
+              optimizer: tf.optimizers.Optimizer,
+              loss: tf.keras.losses.Loss, metrics, callbacks, ds_train, ds_val=None, num_training_images=None,
+              model_saved_dir=None, model_name=None, strategy: tf.distribute.TPUStrategy = None):
+    with strategy.scope():
+        model, emb_model = model_fn()
+        model.compile(
+            optimizer=optimizer,
+            loss=loss,
+            metrics=metrics
+        )
+
+    ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
+
+    ckpt_dir = os.path.join(model_saved_dir, model_name)
+    os.makedirs(ckpt_dir, exist_ok=True)
+
+    ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=1, )
+
+    if not callbacks:
+        callbacks = []
+
+    if not any([isinstance(cb, EarlyStoppingByLossVal) for cb in callbacks]):
+        callbacks.append(EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91), )
+    if not any([isinstance(cb, tf.keras.callbacks.TensorBoard) for cb in callbacks]):
+        callbacks.append(tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5, ))
+    if not any([isinstance(cb, tf.keras.callbacks.CSVLogger) for cb in callbacks]):
+        callbacks.append(tf.keras.callbacks.CSVLogger(os.path.join(model_saved_dir, "training_%s.log" % model_name)), )
+
+    if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]):
+        callbacks.append(CheckpointCallback(ckpt_manager, params["check_period"]))
+
+    steps_per_epoch = num_training_images // params["batch_size"]
+    epochs = params["epochs"]
+
+    if ckpt_manager.latest_checkpoint:
+        print("Restored from: ", ckpt_manager.latest_checkpoint)
+        ckpt.restore(ckpt_manager.latest_checkpoint)
+        epochs -= tf.keras.backend.get_value(ckpt.epoch)
+    else:
+        print("Start from scratch")
+
+    model.fit(ds_train,
+              epochs=epochs,
+              steps_per_epoch=steps_per_epoch,
+              validation_data=ds_val,
+              callbacks=callbacks)
+
+    path = os.path.join(model_saved_dir, "emb_" + str(model_name) + ".h5")
+    print("Saved model to ", path)
+    emb_model.save_weights(path, save_format="h5",
+                           overwrite=True)
+
+    del model, emb_model
+    gc.collect()
+    # return model, emb_model, optimizer, loss, metrics
+
+
 def f1_score(y_true, y_pred):
     y_true = y_true.apply(lambda x: set(x.split()))
     y_pred = y_pred.apply(lambda x: set(x.split()))
