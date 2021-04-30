@@ -216,7 +216,7 @@ def main():
     dists, indices = nn.kneighbors(X_emb[0:10])
     for i in range(len(dists)):
         print("Query: ",X_title[i])
-        print("Result: {}, dist = {}".format(X_title[indices[i]]),dists[i])
+        print("Result: {}, dist = {}".format(X_title[indices[i]],dists[i]))
 
 
 
