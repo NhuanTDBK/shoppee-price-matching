@@ -90,7 +90,9 @@ def train(params: dict, model_fn,
               validation_data=ds_val,
               callbacks=callbacks)
 
-    emb_model.save_weights(os.path.join(model_saved_dir, "emb_" + str(model_name) + ".h5"), save_format="h5",
+    path = os.path.join(model_saved_dir, "emb_" + str(model_name) + ".h5")
+    print("Saved model to ", path)
+    emb_model.save_weights(path, save_format="h5",
                            overwrite=True)
 
     del model, emb_model
@@ -107,10 +109,10 @@ def f1_score(y_true, y_pred):
     f1 = 2 * intersection / (len_y_pred + len_y_true)
     return f1
 
+
 def hyper_search_group(df, embeddings, top_k=50):
     from sklearn.neighbors import NearestNeighbors
     model = NearestNeighbors(n_neighbors=top_k)
     model.fit(embeddings)
 
     distances, indices = model.kneighbors(embeddings)
-
