@@ -72,7 +72,7 @@ def create_model():
         layer.trainable = True
 
     x = resnet(inp)
-    x = tf.keras.layers.Conv2D(N_CLASSES,(1,1))(x)
+    x = tf.keras.layers.Conv2D(N_CLASSES, 1, name="upscale" + '_3_conv')(x)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
 
     x1 = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])([emb, labels_onehot])

@@ -6,3 +6,4 @@ pydot
 graphviz
 tensorflow-addons
 sentencepiece
+PyDrive==1.3.1
