@@ -210,13 +210,13 @@ def main():
 
     X_emb = model.predict(encoder(X_title),batch_size=1024, verbose=1)
     from sklearn.neighbors import NearestNeighbors
-    nn = NearestNeighbors(n_neighbors=1)
+    nn = NearestNeighbors(n_neighbors=2)
     nn.fit(X_emb)
 
     dists, indices = nn.kneighbors(X_emb[0:10])
     for i in range(len(dists)):
         print("Query: ",X_title[i])
-        print("Result: {}, dist = {}".format(X_title[indices[i][0]]),X_title[dists[i][0]])
+        print("Result: {}, dist = {}".format(X_title[indices[i]]),dists[i])
 
 
 
