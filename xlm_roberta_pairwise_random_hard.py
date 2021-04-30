@@ -29,16 +29,10 @@ def parse_args():
     parser.add_argument("--last_hidden_states", type=int, default=3)
     parser.add_argument("--fc_dim", type=int, default=512)
     parser.add_argument("--lr", type=float, default=0.00001)
-    parser.add_argument("--weight_decay", type=float, default=1e-5)
-    parser.add_argument("--l2_wd", type=float, default=1e-5)
-    parser.add_argument("--metric", type=str, default="adacos")
-    parser.add_argument("--input_path", type=str)
-    parser.add_argument("--smooth_ce", type=float, default=0.0)
-    parser.add_argument("--warmup_epoch", type=int, default=10)
     parser.add_argument("--verbose", type=int, default=0)
     parser.add_argument("--resume_fold", type=int, default=None)
-    parser.add_argument("--image_size", type=int, default=512)
     parser.add_argument("--is_online", type=bool, default=True)
+    parser.add_argument("--query_size", type=int, default=1000)
 
     args = parser.parse_args()
     params = vars(args)
@@ -139,6 +133,7 @@ def main():
     generator = RandomSemiHardNegativeLoader(df["title"].to_numpy(),
                                              df["label"].to_numpy(),
                                              batch_size=params["batch_size"],
+                                             qsize=params["query_size"],
                                              shuffle=True)
 
     model, optimizer, loss_fn = create_model()

@@ -197,7 +197,7 @@ class RandomHardNegativeSemiLoader(object):
 
 
 class RandomSemiHardNegativeLoader(object):
-    def __init__(self, X, qclusters, pool_size=100, batch_size=5, neg_size=5, pos_size=1, qsize=None, shuffle=True,
+    def __init__(self, X, qclusters, pool_size=100, batch_size=5, neg_size=5, pos_size=1, qsize=4000, shuffle=True,
                  threshold=0.8, neg_threshold=0.7):
         """
 
