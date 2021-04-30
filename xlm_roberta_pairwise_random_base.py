@@ -1,36 +1,25 @@
-import datetime
-import gc
-import logging
 import argparse
-import os
+import datetime
+import logging
 from typing import Union
 
-import numpy as np
 import pandas as pd
 import transformers
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
-import tensorflow as tf
-from dataloader.semi_loader import RandomTextSemiLoader
+from dataloader.semi_loader import RandomHardNegativeSemiLoader
 from features.pool import BertLastHiddenState
 from modelling.dist import pairwise_dist
 from modelling.loss import contrastive_loss
+from utils import *
+from text.extractor import *
 
 
-#params = {
-#     "N_CLASSES": 11014,
-#     "max_len": 70,
-#     "model_name": 'jplu/tf-xlm-roberta-base',
-#     "epochs": 5,
-#     "batch_size": 16,
-#     "LAST_HIDDEN_STATES": 3,
-#     "DRIVE_PATH": "/content/drive/MyDrive/shopee-price"
-# }
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--max_len", type=int, default=70)
-    parser.add_argument("--model_name", type=str, default='resnet50')
+    parser.add_argument("--model_name", type=str, default='jplu/tf-xlm-roberta-base')
     parser.add_argument("--epochs", type=int, default=25)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--margin", type=float, default=0.3)
@@ -40,15 +29,10 @@ def parse_args():
     parser.add_argument("--last_hidden_states", type=int, default=3)
     parser.add_argument("--fc_dim", type=int, default=512)
     parser.add_argument("--lr", type=float, default=0.00001)
-    parser.add_argument("--weight_decay", type=float, default=1e-5)
-    parser.add_argument("--l2_wd", type=float, default=1e-5)
-    parser.add_argument("--metric", type=str, default="adacos")
-    parser.add_argument("--input_path", type=str)
-    parser.add_argument("--smooth_ce", type=float, default=0.0)
-    parser.add_argument("--warmup_epoch", type=int, default=10)
     parser.add_argument("--verbose", type=int, default=0)
     parser.add_argument("--resume_fold", type=int, default=None)
-    parser.add_argument("--image_size", type=int, default=512)
+    parser.add_argument("--is_online", type=bool, default=True)
+    parser.add_argument("--query_size", type=int, default=1000)
 
     args = parser.parse_args()
     params = vars(args)
@@ -66,8 +50,8 @@ config = transformers.XLMRobertaConfig.from_pretrained(params["model_name"])
 config.output_hidden_states = True
 tokenizer = transformers.XLMRobertaTokenizer.from_pretrained(params["model_name"])
 
-saved_path = "/content/drive/MyDrive/shopee-price"
-model_dir = os.path.join(saved_path, "saved",params["model_name"])
+saved_path = get_disk_path()
+model_dir = os.path.join(saved_path, "saved", params["model_name"])
 os.makedirs(model_dir, exist_ok=True)
 
 
@@ -119,7 +103,7 @@ def create_checkpoint(model, optimizer):
 
 
 def create_model():
-    word_model = transformers.TFAutoModel.from_pretrained(params["model_name"], config=config)
+    word_model = transformers.TFXLMRobertaModel.from_pretrained(params["model_name"], config=config)
 
     ids = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
     att = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
@@ -143,11 +127,14 @@ def create_model():
 def main():
     df = pd.read_csv("train.csv")
     df["label"] = LabelEncoder().fit_transform(df["label_group"].tolist())
+    df["title"] = df["title"].map(lambda d: convert_unicode(d.lower()))
+
     X_title = df["title"].to_numpy()
-    generator = RandomTextSemiLoader(df["title"].to_numpy(),
-                                     df["label"].to_numpy(),
-                                     batch_size=params["batch_size"],
-                                     shuffle=True)
+    generator = RandomHardNegativeSemiLoader(df["title"].to_numpy(),
+                                             df["label"].to_numpy(),
+                                             batch_size=params["batch_size"],
+                                             qsize=params["query_size"],
+                                             shuffle=True)
 
     model, optimizer, loss_fn = create_model()
     checkpoint, checkpoint_prefix = create_checkpoint(model, optimizer)
@@ -179,27 +166,30 @@ def main():
     for epoch in range(params["epochs"]):
         print("Start epoch {}/{} \n".format((epoch + 1), params["epochs"]))
 
+        generator.create_epoch_tuple(encoder,model)
         steps_per_epoch = len(generator)
         pbar = tf.keras.utils.Progbar(steps_per_epoch)
 
         cum_loss_train, cum_loss_val = 0.0, 0.0
+
         for step in range(steps_per_epoch):
             X_idx, y = generator.get(step)
 
-            train_idx, val_idx, _, _ = train_test_split(np.arange(len(X_idx)), y, test_size=0.2, random_state=4111,
-                                                        shuffle=True)
+            # train_idx, val_idx, _, _ = train_test_split(np.arange(len(X_idx)), y, test_size=0.2, random_state=4111,
+            #                                             shuffle=True)
 
-            X_1, X_2 = encoder(X_title[X_idx[:, 0][train_idx]]), encoder(X_title[X_idx[:, 1][train_idx]])
-            X_val_1, X_val_2 = encoder(X_title[X_idx[:, 0][val_idx]]), encoder(X_title[X_idx[:, 1][val_idx]])
-            y_train, y_test = y[train_idx], y[val_idx]
+            # X_1, X_2 = encoder(X_title[X_idx[:, 0][train_idx]]), encoder(X_title[X_idx[:, 1][train_idx]])
+            # X_val_1, X_val_2 = encoder(X_title[X_idx[:, 0][val_idx]]), encoder(X_title[X_idx[:, 1][val_idx]])
+            # y_train, y_test = y[train_idx], y[val_idx]
+            X_1, X_2 = encoder(X_title[X_idx[:,0]]),encoder(X_title[X_idx[:,1]])
+            loss_value = train_step(X_1, X_2, y)
+            # val_loss_value = valid_step(X_val_1, X_val_2, y_test)
 
-            loss_value = train_step(X_1, X_2, y_train)
-            val_loss_value = valid_step(X_val_1, X_val_2, y_test)
-
-            pbar.update(step, values=[("log_loss", loss_value), ("val_loss", val_loss_value)])
+            # pbar.update(step, values=[("log_loss", loss_value), ("val_loss", val_loss_value)])
+            pbar.update(step, values=[("log_loss", loss_value)])
 
             cum_loss_train += loss_value
-            cum_loss_val += val_loss_value
+            # cum_loss_val += val_loss_value
 
             del X_1, X_2, X_idx
             gc.collect()
@@ -207,16 +197,13 @@ def main():
         with train_summary_writer.as_default():
             tf.summary.scalar("loss", cum_loss_train / steps_per_epoch, epoch)
 
-        with val_summary_writer.as_default():
-            tf.summary.scalar("loss", cum_loss_val / steps_per_epoch, epoch)
-
-        checkpoint.save(file_prefix=checkpoint_prefix)
-        generator.on_epoch_end()
+        # checkpoint.save(file_prefix=checkpoint_prefix)
+        # generator.on_epoch_end()
 
     train_summary_writer.flush()
-    val_summary_writer.flush()
+    # val_summary_writer.flush()
 
-    model.save_weights(os.path.join(model_dir,"model"),save_format="h5",overwrite=True)
+    # model.save_weights(os.path.join(model_dir, "model"), save_format="h5", overwrite=True)
 
 
 if __name__ == '__main__':

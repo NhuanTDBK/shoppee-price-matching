@@ -197,13 +197,13 @@ def main():
         with train_summary_writer.as_default():
             tf.summary.scalar("loss", cum_loss_train / steps_per_epoch, epoch)
 
-        checkpoint.save(file_prefix=checkpoint_prefix)
+        # checkpoint.save(file_prefix=checkpoint_prefix)
         # generator.on_epoch_end()
 
     train_summary_writer.flush()
     val_summary_writer.flush()
 
-    model.save_weights(os.path.join(model_dir, "model"), save_format="h5", overwrite=True)
+    # model.save_weights(os.path.join(model_dir, "model"), save_format="h5", overwrite=True)
 
 
 if __name__ == '__main__':
