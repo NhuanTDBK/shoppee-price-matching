@@ -18,7 +18,7 @@ from utils import *
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--max_len", type=int, default=70)
-    parser.add_argument("--model_name", type=str, default='resnet50')
+    parser.add_argument("--model_name", type=str, default='jplu/tf-xlm-roberta-base')
     parser.add_argument("--epochs", type=int, default=25)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--margin", type=float, default=0.3)
@@ -108,7 +108,7 @@ def create_checkpoint(model, optimizer):
 
 
 def create_model():
-    word_model = transformers.TFAutoModel.from_pretrained(params["model_name"], config=config)
+    word_model = transformers.TFXLMRobertaModel.from_pretrained(params["model_name"], config=config)
 
     ids = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
     att = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32)
