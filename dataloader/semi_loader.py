@@ -131,8 +131,8 @@ class RandomHardNegativeSemiLoader(object):
 
         self.idx2pool_neg = np.random.choice(np.where(self.mask)[0], size=llen_pool_idxs)
 
-        X_pos = embedding_model.predict(encoder(self.X[self.pidxs]), batch_size=128, verbose=1)
-        X_neg = embedding_model.predict(encoder(self.X[self.idx2pool_neg]), batch_size=64, verbose=1)
+        X_pos = embedding_model.predict(encoder(self.X[self.pidxs]), batch_size=128, verbose=0)
+        X_neg = embedding_model.predict(encoder(self.X[self.idx2pool_neg]), batch_size=64, verbose=0)
 
         logger.info(">> %s %s" % (X_pos.shape, X_neg.shape))
         logger.info(">> Searching for hard negatives...")
