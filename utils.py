@@ -102,9 +102,12 @@ def train(params: dict, model_fn,
 
 def train_tpu(params: dict, model_fn,
               optimizer: tf.optimizers.Optimizer,
-              loss: tf.keras.losses.Loss, metrics, callbacks, ds_train, ds_val=None, num_training_images=None,
+              callbacks, ds_train, ds_val=None, num_training_images=None,
               model_saved_dir=None, model_name=None, strategy: tf.distribute.TPUStrategy = None):
     with strategy.scope():
+        loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
+        metrics = tf.keras.metrics.SparseCategoricalAccuracy()
+
         model, emb_model = model_fn()
         model.compile(
             optimizer=optimizer,

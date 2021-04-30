@@ -129,8 +129,7 @@ def main():
         optimizers = tfx.optimizers.AdamW(weight_decay=params["weight_decay"],
                                           learning_rate=params["lr"])
 
-        loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
-        metrics = tf.keras.metrics.SparseCategoricalAccuracy()
+
 
         callbacks = [
             get_lr_callback(num_training_images),
@@ -138,7 +137,7 @@ def main():
 
         model_id = "fold_" + str(fold_idx)
 
-        train_tpu(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val,
+        train_tpu(params, create_model, optimizers, callbacks, ds_train, ds_val,
               num_training_images, model_dir, model_id,strategy)
 
 
