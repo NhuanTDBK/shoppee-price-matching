@@ -171,6 +171,7 @@ def main():
     for epoch in range(params["epochs"]):
         print("Start epoch {}/{} \n".format((epoch + 1), params["epochs"]))
 
+        generator.create_epoch_tuple(encoder,model)
         steps_per_epoch = len(generator)
         pbar = tf.keras.utils.Progbar(steps_per_epoch)
 
