@@ -197,9 +197,6 @@ def main():
         with train_summary_writer.as_default():
             tf.summary.scalar("loss", cum_loss_train / steps_per_epoch, epoch)
 
-        with val_summary_writer.as_default():
-            tf.summary.scalar("loss", cum_loss_val / steps_per_epoch, epoch)
-
         checkpoint.save(file_prefix=checkpoint_prefix)
         # generator.on_epoch_end()
 

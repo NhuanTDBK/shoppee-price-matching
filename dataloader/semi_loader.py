@@ -262,7 +262,7 @@ class RandomSemiHardNegativeLoader(object):
 
         # # Select hardest positive, if it's similar with model => skip
         min_pos_dist = X_dist_pos.min(axis=1)
-        min_neg_dist = X_dist_neg.min(axis=1)
+        max_neg_dist = X_dist_neg.max(axis=1)
 
         self.pos_pair = []
         self.neg_pair = []
@@ -281,8 +281,8 @@ class RandomSemiHardNegativeLoader(object):
 
             self.pos_pair.append([left_idx, right_idx, 1])
 
-        for i in np.where(min_neg_dist < self.threshold)[0]:
-            neg_idxs = np.random.choice(np.where(X_dist_neg[i] < min_neg_dist[i] + 0.1)[0], size=self.neg_size)
+        for i in np.where(max_neg_dist < self.threshold)[0]:
+            neg_idxs = np.random.choice(np.where(X_dist_neg[i] < max_neg_dist[i] + 0.1)[0], size=self.neg_size)
             for neg_idx in neg_idxs:
                 left_idx, right_idx = self.qidxs[i], neg_idx
 
