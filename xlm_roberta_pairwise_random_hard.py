@@ -55,7 +55,7 @@ config = transformers.XLMRobertaConfig.from_pretrained(params["model_name"])
 config.output_hidden_states = True
 tokenizer = transformers.XLMRobertaTokenizer.from_pretrained(params["model_name"])
 
-saved_path = get_disk_path(params["is_online"])
+saved_path = get_disk_path()
 model_dir = os.path.join(saved_path, "saved", params["model_name"])
 os.makedirs(model_dir, exist_ok=True)
 
