@@ -1,8 +1,6 @@
 import argparse
-import glob
 
 from sklearn.model_selection import KFold
-import tensorflow_addons as tfx
 
 from features.img import *
 from features.pool import LocalGlobalExtractor
@@ -34,7 +32,7 @@ def parse_args():
     parser.add_argument("--freeze", type=bool, default=False)
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
     parser.add_argument("--check_period", type=int, default=5)
-
+    parser.add_argument("--optim", type=str, default="adam")
 
     args = parser.parse_args()
     params = vars(args)
@@ -59,6 +57,7 @@ image_extractor_mapper = {
     "b4": tf.keras.applications.EfficientNetB4,
     "b5": tf.keras.applications.EfficientNetB5
 }
+
 
 def create_model():
     inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
@@ -85,14 +84,25 @@ def create_model():
     return model, emb_model
 
 
-def get_lr_callback(total_size):
-    steps_per_epoch = total_size / params["batch_size"]
-    total_steps = int(params["epochs"] * steps_per_epoch)
-    warmup_steps = int(params["warmup_epoch"] * steps_per_epoch)
+def get_lr_callback():
+    lr_start = 0.000001
+    lr_max = 0.000005 * params["batch_size"]
+    lr_min = 0.000001
+    lr_ramp_ep = 5
+    lr_sus_ep = 0
+    lr_decay = 0.8
 
-    return WarmUpCosineDecayScheduler(params["lr"], total_steps=total_steps, verbose=params["verbose"],
-                                      steps_per_epoch=steps_per_epoch,
-                                      warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
+    def lrfn(epoch):
+        if epoch < lr_ramp_ep:
+            lr = (lr_max - lr_start) / lr_ramp_ep * epoch + lr_start
+        elif epoch < lr_ramp_ep + lr_sus_ep:
+            lr = lr_max
+        else:
+            lr = (lr_max - lr_min) * lr_decay ** (epoch - lr_ramp_ep - lr_sus_ep) + lr_min
+        return lr
+
+    lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
+    return lr_callback
 
 
 def main():
@@ -107,7 +117,7 @@ def main():
 
     print("Loading data")
     input_paths = params['input_path']
-    files = np.array([fpath for fpath in glob.glob(input_paths + "/*.tfrec")])
+    files = np.array([fpath for fpath in tf.io.gfile.glob(input_paths + "/*.tfrec")])
 
     print("Found files: ", files)
 
@@ -126,19 +136,18 @@ def main():
         print("Get ds validation")
         ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=IMAGE_SIZE)
 
-        optimizers = tfx.optimizers.AdamW(weight_decay=params["weight_decay"],
-                                          learning_rate=params["lr"])
-
-
+        optimizers = tf.optimizers.Adam(learning_rate=params["lr"])
+        if params["optim"] == "sgd":
+            optimizers = tf.optimizers.SGD(learning_rate=params["lr"], momentum=0.9, decay=1e-5)
 
         callbacks = [
-            get_lr_callback(num_training_images),
+            # get_lr_callback(),
         ]
 
         model_id = "fold_" + str(fold_idx)
 
         train_tpu(params, create_model, optimizers, callbacks, ds_train, ds_val,
-              num_training_images, model_dir, model_id,strategy)
+                  num_training_images, model_dir, model_id, strategy)
 
 
 if __name__ == "__main__":
