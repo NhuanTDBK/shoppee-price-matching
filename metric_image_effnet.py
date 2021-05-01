@@ -129,8 +129,7 @@ def main():
         print("Get ds validation")
         ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=IMAGE_SIZE)
 
-        optimizers = tfx.optimizers.AdamW(weight_decay=params["weight_decay"],
-                                          learning_rate=params["lr"])
+        optimizers = tf.keras.optimizers.Adam(learning_rate=params["lr"])
 
         loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
         metrics = tf.keras.metrics.SparseCategoricalAccuracy()
