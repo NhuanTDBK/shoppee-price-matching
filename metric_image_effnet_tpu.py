@@ -2,6 +2,7 @@ import argparse
 
 from sklearn.model_selection import KFold
 
+import efficientnet.tfkeras as efn
 from features.img import *
 from features.pool import LocalGlobalExtractor
 from modelling.metrics import MetricLearner
@@ -50,14 +51,14 @@ model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["
 os.makedirs(model_dir, exist_ok=True)
 
 image_extractor_mapper = {
-    "b0": tf.keras.applications.EfficientNetB0,
-    "b1": tf.keras.applications.EfficientNetB1,
-    "b2": tf.keras.applications.EfficientNetB2,
-    "b3": tf.keras.applications.EfficientNetB3,
-    "b4": tf.keras.applications.EfficientNetB4,
-    "b5": tf.keras.applications.EfficientNetB5,
-    "b6": tf.keras.applications.EfficientNetB6,
-    "b7": tf.keras.applications.EfficientNetB7
+    "b0": efn.EfficientNetB0,
+    "b1": efn.EfficientNetB1,
+    "b2": efn.EfficientNetB2,
+    "b3": efn.EfficientNetB3,
+    "b4": efn.EfficientNetB4,
+    "b5": efn.EfficientNetB5,
+    "b6": efn.EfficientNetB6,
+    "b7": efn.EfficientNetB7
 }
 
 

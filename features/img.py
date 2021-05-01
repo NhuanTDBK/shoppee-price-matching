@@ -26,10 +26,24 @@ def data_augment(posting_id, image, label_group, matches):
 
 
 # Function to decode our images
+# def decode_image(image_data, IMAGE_SIZE=(512, 512)):
+#     image = tf.image.decode_jpeg(image_data, channels=3)
+#     image = tf.image.resize(image, IMAGE_SIZE)
+#     # image = tf.cast(image, tf.float32) / 255.0
+#     return image
+
+
+def normalize_image(image):
+    image -= tf.constant([0.485 * 255, 0.456 * 255, 0.406 * 255])  # RGB
+    image /= tf.constant([0.229 * 255, 0.224 * 255, 0.225 * 255])  # RGB
+    return image
+
+
 def decode_image(image_data, IMAGE_SIZE=(512, 512)):
     image = tf.image.decode_jpeg(image_data, channels=3)
     image = tf.image.resize(image, IMAGE_SIZE)
-    image = tf.cast(image, tf.float32) / 255.0
+    image = normalize_image(image)
+    image = tf.reshape(image, [*IMAGE_SIZE, 3])
     return image
 
 
