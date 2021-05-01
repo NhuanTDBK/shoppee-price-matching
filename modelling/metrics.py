@@ -52,14 +52,14 @@ class ArcFace(layers.Layer):
 
         if training:
             theta = tf.acos(K.clip(cos, -1.0 + K.epsilon(), 1.0 - K.epsilon()))
-            tf.summary.histogram("angles", theta)
+            # tf.summary.histogram("angles", theta)
 
             cos_add = tf.cos(theta + self.margin)
             mask = tf.cast(labels, dtype=cos_add.dtype)
             output = mask * cos_add + (1 - mask) * cos
             output = output * self.scale
 
-            tf.summary.histogram("logits", output)
+            # tf.summary.histogram("logits", output)
             return output
         else:
             return cos

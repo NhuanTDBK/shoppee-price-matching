@@ -55,7 +55,9 @@ image_extractor_mapper = {
     "b2": tf.keras.applications.EfficientNetB2,
     "b3": tf.keras.applications.EfficientNetB3,
     "b4": tf.keras.applications.EfficientNetB4,
-    "b5": tf.keras.applications.EfficientNetB5
+    "b5": tf.keras.applications.EfficientNetB5,
+    "b6": tf.keras.applications.EfficientNetB6,
+    "b7": tf.keras.applications.EfficientNetB7
 }
 
 
@@ -114,6 +116,10 @@ def main():
     tf.tpu.experimental.initialize_tpu_system(resolver)
     print("All TPU devices: ", tf.config.list_logical_devices('TPU'))
     strategy = tf.distribute.TPUStrategy(resolver)
+
+    BATCH_SIZE_PER_TPU = params["batch_size"]
+    BATCH_SIZE = BATCH_SIZE_PER_TPU * strategy.num_replicas_in_sync
+    params["batch_size"] = BATCH_SIZE
 
     print("Loading data")
     input_paths = params['input_path']
