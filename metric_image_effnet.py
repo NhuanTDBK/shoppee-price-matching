@@ -85,15 +85,25 @@ def create_model():
     return model, emb_model
 
 
-def get_lr_callback(total_size):
-    steps_per_epoch = total_size / params["batch_size"]
-    total_steps = int(params["epochs"] * steps_per_epoch)
-    warmup_steps = int(params["warmup_epoch"] * steps_per_epoch)
+def get_lr_callback():
+    lr_start = 0.000001
+    lr_max = 0.000005 * params["batch_size"]
+    lr_min = 0.000001
+    lr_ramp_ep = 5
+    lr_sus_ep = 0
+    lr_decay = 0.8
 
-    return WarmUpCosineDecayScheduler(params["lr"], total_steps=total_steps, verbose=params["verbose"],
-                                      steps_per_epoch=steps_per_epoch,
-                                      warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
+    def lrfn(epoch):
+        if epoch < lr_ramp_ep:
+            lr = (lr_max - lr_start) / lr_ramp_ep * epoch + lr_start
+        elif epoch < lr_ramp_ep + lr_sus_ep:
+            lr = lr_max
+        else:
+            lr = (lr_max - lr_min) * lr_decay ** (epoch - lr_ramp_ep - lr_sus_ep) + lr_min
+        return lr
 
+    lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
+    return lr_callback
 
 def main():
     seed_everything(SEED)
