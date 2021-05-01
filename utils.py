@@ -104,6 +104,9 @@ def train_tpu(params: dict, model_fn,
               optimizer: tf.optimizers.Optimizer,
               callbacks, ds_train, ds_val=None, num_training_images=None,
               model_saved_dir=None, model_name=None, strategy: tf.distribute.TPUStrategy = None):
+    ckpt_dir = os.path.join(model_saved_dir, model_name)
+    os.makedirs(ckpt_dir, exist_ok=True)
+
     with strategy.scope():
         loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
         metrics = tf.keras.metrics.SparseCategoricalAccuracy()
@@ -115,12 +118,16 @@ def train_tpu(params: dict, model_fn,
             metrics=metrics
         )
 
-    ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
+        ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
+        ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=1, )
+        epochs = params["epochs"]
 
-    ckpt_dir = os.path.join(model_saved_dir, model_name)
-    os.makedirs(ckpt_dir, exist_ok=True)
-
-    ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=1, )
+        if ckpt_manager.latest_checkpoint:
+            print("Restored from: ", ckpt_manager.latest_checkpoint)
+            ckpt.restore(ckpt_manager.latest_checkpoint).expect_partial()
+            epochs -= tf.keras.backend.get_value(ckpt.epoch)
+        else:
+            print("Start from scratch")
 
     if not callbacks:
         callbacks = []
@@ -134,14 +141,7 @@ def train_tpu(params: dict, model_fn,
         callbacks.append(CheckpointCallback(ckpt_manager, params["check_period"]))
 
     steps_per_epoch = num_training_images // params["batch_size"]
-    epochs = params["epochs"]
 
-    if ckpt_manager.latest_checkpoint:
-        print("Restored from: ", ckpt_manager.latest_checkpoint)
-        ckpt.restore(ckpt_manager.latest_checkpoint).expect_partial()
-        epochs -= tf.keras.backend.get_value(ckpt.epoch)
-    else:
-        print("Start from scratch")
 
     model.fit(ds_train,
               epochs=epochs,
