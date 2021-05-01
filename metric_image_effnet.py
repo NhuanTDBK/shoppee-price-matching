@@ -1,8 +1,6 @@
 import argparse
-import glob
 
 from sklearn.model_selection import KFold
-import tensorflow_addons as tfx
 
 from features.img import *
 from features.pool import LocalGlobalExtractor
@@ -35,7 +33,6 @@ def parse_args():
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
     parser.add_argument("--check_period", type=int, default=5)
 
-
     args = parser.parse_args()
     params = vars(args)
     return params
@@ -59,6 +56,7 @@ image_extractor_mapper = {
     "b4": tf.keras.applications.EfficientNetB4,
     "b5": tf.keras.applications.EfficientNetB5
 }
+
 
 def create_model():
     inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
@@ -105,6 +103,7 @@ def get_lr_callback():
     lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
     return lr_callback
 
+
 def main():
     seed_everything(SEED)
 
@@ -135,7 +134,7 @@ def main():
         metrics = tf.keras.metrics.SparseCategoricalAccuracy()
 
         callbacks = [
-            get_lr_callback(num_training_images),
+            get_lr_callback(),
         ]
 
         model_id = "fold_" + str(fold_idx)
