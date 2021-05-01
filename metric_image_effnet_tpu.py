@@ -1,8 +1,8 @@
 import argparse
 
+import efficientnet.tfkeras as efn
 from sklearn.model_selection import KFold
 
-import efficientnet.tfkeras as efn
 from features.img import *
 from features.pool import LocalGlobalExtractor
 from modelling.metrics import MetricLearner
@@ -121,6 +121,7 @@ def main():
     BATCH_SIZE_PER_TPU = params["batch_size"]
     BATCH_SIZE = BATCH_SIZE_PER_TPU * strategy.num_replicas_in_sync
     params["batch_size"] = BATCH_SIZE
+    print("Batch size: ", BATCH_SIZE)
 
     print("Loading data")
     input_paths = params['input_path']
