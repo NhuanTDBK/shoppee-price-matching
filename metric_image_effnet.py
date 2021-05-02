@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument("--verbose", type=int, default=0)
     parser.add_argument("--resume_fold", type=int, default=None)
     parser.add_argument("--image_size", type=int, default=512)
+    parser.add_argument("--valid_image_size", type=int)
     parser.add_argument("--freeze", type=bool, default=False)
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
     parser.add_argument("--check_period", type=int, default=5)
@@ -42,7 +43,10 @@ params = parse_args()
 
 SEED = 4111
 N_CLASSES = 11014
-IMAGE_SIZE = (params["image_size"], params["image_size"])
+IMAGE_SIZE = (params["image_size"], params["image_size"]
+VALID_IMAGE_SIZE = IMAGE_SIZE
+if ("valid_image_size" in params and not params["valid_image_size"]):
+    VALID_IMAGE_SIZE = (params["valid_image_size"], params["valid_image_size"]
 
 saved_path = params["saved_path"]
 model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["image_size"]))
@@ -65,13 +69,6 @@ def create_model():
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
     effnet = image_extractor_mapper[params["model_name"]](include_top=False, weights="imagenet", )
-
-    print(effnet.output_shape)
-
-    if params["freeze"]:
-        for layer in effnet.layers:
-            layer.trainable = False
-
     x = effnet(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
 
@@ -128,7 +125,7 @@ def main():
         print(f'Dataset: {num_training_images} training images')
 
         print("Get ds validation")
-        ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=IMAGE_SIZE)
+        ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=VALID_IMAGE_SIZE)
 
         optimizers = tf.keras.optimizers.Adam(learning_rate=params["lr"])
 
