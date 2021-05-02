@@ -43,7 +43,7 @@ params = parse_args()
 
 SEED = 4111
 N_CLASSES = 11014
-IMAGE_SIZE = (params["image_size"], params["image_size"]
+IMAGE_SIZE = (params["image_size"], params["image_size"])
 VALID_IMAGE_SIZE = IMAGE_SIZE
 if ("valid_image_size" in params and not params["valid_image_size"]):
     VALID_IMAGE_SIZE = (params["valid_image_size"], params["valid_image_size"]
