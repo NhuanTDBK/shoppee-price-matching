@@ -71,7 +71,7 @@ def train(params: dict, model_fn,
     if not any([isinstance(cb, tf.keras.callbacks.CSVLogger) for cb in callbacks]):
         callbacks.append(tf.keras.callbacks.CSVLogger(os.path.join(model_saved_dir, "training_%s.log" % model_name)), )
 
-    if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]):
+    if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]) and params["is_checkpoint"]:
         callbacks.append(CheckpointCallback(ckpt_manager, params["check_period"]))
 
     steps_per_epoch = num_training_images // params["batch_size"]
