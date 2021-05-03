@@ -35,6 +35,8 @@ def parse_args():
     parser.add_argument("--check_period", type=int, default=5)
     parser.add_argument("--lr_schedule", type=str, default=None)
     parser.add_argument("--is_checkpoint", type=bool, default=True)
+    parser.add_argument("--optim", type=str, default="adam")
+    
     args = parser.parse_args()
     params = vars(args)
     return params
@@ -109,6 +111,8 @@ def main():
         ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=VALID_IMAGE_SIZE)
 
         optimizers = tf.keras.optimizers.Adam(learning_rate=params["lr"])
+        if params["optim"] == "sgd":
+            optimizers = tf.optimizers.SGD(learning_rate=params["lr"], momentum=0.9, decay=1e-5)        
 
         loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
         metrics = tf.keras.metrics.SparseCategoricalAccuracy()
