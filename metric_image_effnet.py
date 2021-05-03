@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument("--freeze", type=bool, default=False)
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
     parser.add_argument("--check_period", type=int, default=5)
-
+    parser.add_argument("--lr_schedule", type=str, default=None)
     args = parser.parse_args()
     params = vars(args)
     return params
@@ -82,26 +82,6 @@ def create_model():
     return model, emb_model
 
 
-def get_lr_callback():
-    lr_start = 0.000001
-    lr_max = 0.000005 * params["batch_size"]
-    lr_min = 0.000001
-    lr_ramp_ep = 5
-    lr_sus_ep = 0
-    lr_decay = 0.8
-
-    def lrfn(epoch):
-        if epoch < lr_ramp_ep:
-            lr = (lr_max - lr_start) / lr_ramp_ep * epoch + lr_start
-        elif epoch < lr_ramp_ep + lr_sus_ep:
-            lr = lr_max
-        else:
-            lr = (lr_max - lr_min) * lr_decay ** (epoch - lr_ramp_ep - lr_sus_ep) + lr_min
-        return lr
-
-    lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
-    return lr_callback
-
 
 def main():
     seed_everything(SEED)
@@ -132,9 +112,12 @@ def main():
         loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
         metrics = tf.keras.metrics.SparseCategoricalAccuracy()
 
-        callbacks = [
-            get_lr_callback(),
-        ]
+        callbacks = []
+        if not params["lr_schedule"]:
+            if params["lr_schedule"] == "cosine":
+                callbacks.append(get_cosine_annealing(num_training_images))
+            elif params["lr_schedule"] == "linear":
+                callbacks.append(get_linear_decay())
 
         model_id = "fold_" + str(fold_idx)
         train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val,
