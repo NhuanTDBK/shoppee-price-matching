@@ -187,7 +187,7 @@ def average_expansion(embeddings, top_k = 3):
 
 
 
-def get_cosine_annealing(total_size):
+def get_cosine_annealing(params,total_size):
     steps_per_epoch = total_size / params["batch_size"]
     total_steps = int(params["epochs"] * steps_per_epoch)
     warmup_steps = int(params["warmup_epoch"] * steps_per_epoch)
