@@ -52,7 +52,9 @@ if "valid_image_size" in params and not params["valid_image_size"]:
     VALID_IMAGE_SIZE = (params["valid_image_size"], params["valid_image_size"])
 
 saved_path = params["saved_path"]
-model_dir = os.path.join(saved_path, "saved", params["model_name"]+str(params["image_size"])+str(params["batch_size"])+str(params["optim"]))
+model_dir = os.path.join(saved_path, "saved",
+                         params["model_name"] + str(params["image_size"]) + str(params["batch_size"]) + str(
+                             params["optim"]))
 os.makedirs(model_dir, exist_ok=True)
 
 image_extractor_mapper = {
@@ -71,7 +73,7 @@ def create_model():
     inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
-    effnet = image_extractor_mapper[params["model_name"]](include_top=False, weights="imagenet",)
+    effnet = image_extractor_mapper[params["model_name"]](include_top=False, weights="imagenet", )
 
     x = effnet(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
@@ -129,11 +131,13 @@ def main():
         callbacks = []
         if not params["lr_schedule"]:
             if params["lr_schedule"] == "cosine":
-                callbacks.append(get_cosine_annealing(params,num_training_images))
+                callbacks.append(get_cosine_annealing(params, num_training_images))
             elif params["lr_schedule"] == "linear":
                 callbacks.append(get_linear_decay())
 
         model_id = "fold_" + str(fold_idx)
+
+        print("List callbacks: %v",callbacks)
 
         train_tpu(params, create_model, optimizers, callbacks, ds_train, ds_val,
                   num_training_images, model_dir, model_id, strategy)
