@@ -138,7 +138,7 @@ def train_tpu(params: dict, model_fn,
     if not any([isinstance(cb, tf.keras.callbacks.CSVLogger) for cb in callbacks]):
         callbacks.append(tf.keras.callbacks.CSVLogger(os.path.join(model_saved_dir, "training_%s.log" % model_name)), )
 
-    if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]):
+    if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]) and params["is_checkpoint"]:
         callbacks.append(CheckpointCallback(ckpt_manager, params["check_period"]))
 
     steps_per_epoch = num_training_images // params["batch_size"]
@@ -176,3 +176,42 @@ def hyper_search_group(df, embeddings, top_k=50):
     model.fit(embeddings)
 
     distances, indices = model.kneighbors(embeddings)
+
+def average_expansion(embeddings, top_k = 3):
+    norm_emb = tf.math.l2_normalize(embeddings,axis=1)
+    sim_matrix = tf.linalg.matmul(norm_emb, norm_emb,transpose_b=True)
+    indices = tf.argsort(sim_matrix,direction="DESCENDING")
+    top_k_ref_mean = tf.reduce_mean(tf.gather(embeddings,indices[:,:top_k]),axis=1)
+    avg_emb = tf.concat([embeddings, top_k_ref_mean])
+    return avg_emb
+
+
+
+def get_cosine_annealing(total_size):
+    steps_per_epoch = total_size / params["batch_size"]
+    total_steps = int(params["epochs"] * steps_per_epoch)
+    warmup_steps = int(params["warmup_epoch"] * steps_per_epoch)
+
+    return WarmUpCosineDecayScheduler(params["lr"], total_steps=total_steps, verbose=params["verbose"],
+                                      steps_per_epoch=steps_per_epoch,
+                                      warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
+
+def get_linear_decay():
+    lr_start = 0.000001
+    lr_max = 0.000005 * params["batch_size"]
+    lr_min = 0.000001
+    lr_ramp_ep = 5
+    lr_sus_ep = 0
+    lr_decay = 0.8
+
+    def lrfn(epoch):
+        if epoch < lr_ramp_ep:
+            lr = (lr_max - lr_start) / lr_ramp_ep * epoch + lr_start
+        elif epoch < lr_ramp_ep + lr_sus_ep:
+            lr = lr_max
+        else:
+            lr = (lr_max - lr_min) * lr_decay ** (epoch - lr_ramp_ep - lr_sus_ep) + lr_min
+        return lr
+
+    lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
+    return lr_callback

@@ -11,7 +11,6 @@ from utils import *
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--max_len", type=int, default=70)
     parser.add_argument("--model_name", type=str, default='effb7')
     parser.add_argument("--epochs", type=int, default=25)
     parser.add_argument("--batch_size", type=int, default=32)
@@ -26,7 +25,7 @@ def parse_args():
     parser.add_argument("--l2_wd", type=float, default=1e-5)
     parser.add_argument("--metric", type=str, default="adacos")
     parser.add_argument("--input_path", type=str)
-    parser.add_argument("--warmup_epoch", type=int, default=10)
+    parser.add_argument("--warmup_epoch", type=int, default=0)
     parser.add_argument("--verbose", type=int, default=0)
     parser.add_argument("--resume_fold", type=int, default=None)
     parser.add_argument("--image_size", type=int, default=512)
@@ -35,6 +34,8 @@ def parse_args():
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
     parser.add_argument("--check_period", type=int, default=5)
     parser.add_argument("--optim", type=str, default="adam")
+    parser.add_argument("--is_checkpoint", type=bool, default=True)
+    parser.add_argument("--lr_schedule", type=str, default=None)
 
     args = parser.parse_args()
     params = vars(args)
@@ -91,27 +92,6 @@ def create_model():
     return model, emb_model
 
 
-def get_lr_callback():
-    lr_start = 0.000001
-    lr_max = 0.000005 * params["batch_size"]
-    lr_min = 0.000001
-    lr_ramp_ep = 5
-    lr_sus_ep = 0
-    lr_decay = 0.8
-
-    def lrfn(epoch):
-        if epoch < lr_ramp_ep:
-            lr = (lr_max - lr_start) / lr_ramp_ep * epoch + lr_start
-        elif epoch < lr_ramp_ep + lr_sus_ep:
-            lr = lr_max
-        else:
-            lr = (lr_max - lr_min) * lr_decay ** (epoch - lr_ramp_ep - lr_sus_ep) + lr_min
-        return lr
-
-    lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
-    return lr_callback
-
-
 def main():
     seed_everything(SEED)
 
@@ -152,9 +132,12 @@ def main():
         if params["optim"] == "sgd":
             optimizers = tf.optimizers.SGD(learning_rate=params["lr"], momentum=0.9, decay=1e-5)
 
-        callbacks = [
-            # get_lr_callback(),
-        ]
+        callbacks = []
+        if not params["lr_schedule"]:
+            if params["lr_schedule"] == "cosine":
+                callbacks.append(get_cosine_annealing(num_training_images))
+            elif params["lr_schedule"] == "linear":
+                callbacks.append(get_linear_decay())
 
         model_id = "fold_" + str(fold_idx)
 
