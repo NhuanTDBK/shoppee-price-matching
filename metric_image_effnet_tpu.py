@@ -52,7 +52,7 @@ if "valid_image_size" in params and not params["valid_image_size"]:
     VALID_IMAGE_SIZE = (params["valid_image_size"], params["valid_image_size"])
 
 saved_path = params["saved_path"]
-model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["image_size"]))
+model_dir = os.path.join(saved_path, "saved", params["model_name"]+str(params["image_size"])+str(params["batch_size"])+str(params["optim"]))
 os.makedirs(model_dir, exist_ok=True)
 
 image_extractor_mapper = {
