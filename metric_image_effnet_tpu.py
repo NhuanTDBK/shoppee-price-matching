@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument("--check_period", type=int, default=5)
     parser.add_argument("--optim", type=str, default="adam")
     parser.add_argument("--is_checkpoint", type=bool, default=True)
-    parser.add_argument("--lr_schedule", type=str, default=None)
+    parser.add_argument("--lr_schedule", type=str, default="")
 
     args = parser.parse_args()
     params = vars(args)
@@ -52,9 +52,9 @@ if "valid_image_size" in params and not params["valid_image_size"]:
     VALID_IMAGE_SIZE = (params["valid_image_size"], params["valid_image_size"])
 
 saved_path = params["saved_path"]
-model_dir = os.path.join(saved_path, "saved",
-                         params["model_name"] + str(params["image_size"]) + str(params["batch_size"]) + str(
-                             params["optim"]))
+model_id = "_".join([params["model_name"], str(params["image_size"]), str(params["batch_size"]), str(params["optim"]),
+                     str(params["lr_schedule"])])
+model_dir = os.path.join(saved_path, "saved", model_id)
 os.makedirs(model_dir, exist_ok=True)
 
 image_extractor_mapper = {
@@ -129,15 +129,14 @@ def main():
             optimizers = tf.optimizers.SGD(learning_rate=params["lr"], momentum=0.9, decay=1e-5)
 
         callbacks = []
-        if not params["lr_schedule"]:
-            if params["lr_schedule"] == "cosine":
-                callbacks.append(get_cosine_annealing(params, num_training_images))
-            elif params["lr_schedule"] == "linear":
-                callbacks.append(get_linear_decay())
+        if params["lr_schedule"] == "cosine":
+            callbacks.append(get_cosine_annealing(params, num_training_images))
+        elif params["lr_schedule"] == "linear":
+            callbacks.append(get_linear_decay(params))
 
         model_id = "fold_" + str(fold_idx)
 
-        print("List callbacks: %v",callbacks)
+        print("List callbacks: %v", callbacks)
 
         train_tpu(params, create_model, optimizers, callbacks, ds_train, ds_val,
                   num_training_images, model_dir, model_id, strategy)

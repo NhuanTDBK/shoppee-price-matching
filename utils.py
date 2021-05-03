@@ -196,7 +196,7 @@ def get_cosine_annealing(params,total_size):
                                       steps_per_epoch=steps_per_epoch,
                                       warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
 
-def get_linear_decay():
+def get_linear_decay(params):
     lr_start = 0.000001
     lr_max = 0.000005 * params["batch_size"]
     lr_min = 0.000001
