@@ -159,10 +159,10 @@ def main():
         callbacks = []
         if not params["lr_schedule"]:
             if params["lr_schedule"] == "cosine":
-                callbacks.append(get_cosine_annealing(num_training_images))
+                callbacks.append(get_cosine_annealing(params,num_training_images))
             elif params["lr_schedule"] == "linear":
                 callbacks.append(get_linear_decay())
-                
+
         model_id = "fold_" + str(fold_idx)
         train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val,
               num_training_images, model_dir, model_id)

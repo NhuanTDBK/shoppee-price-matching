@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument("--lr_schedule", type=str, default=None)
     parser.add_argument("--is_checkpoint", type=bool, default=True)
     parser.add_argument("--optim", type=str, default="adam")
-    
+
     args = parser.parse_args()
     params = vars(args)
     return params
@@ -120,7 +120,7 @@ def main():
         callbacks = []
         if not params["lr_schedule"]:
             if params["lr_schedule"] == "cosine":
-                callbacks.append(get_cosine_annealing(num_training_images))
+                callbacks.append(get_cosine_annealing(params,num_training_images))
             elif params["lr_schedule"] == "linear":
                 callbacks.append(get_linear_decay())
 
