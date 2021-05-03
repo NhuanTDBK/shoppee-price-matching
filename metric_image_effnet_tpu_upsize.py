@@ -156,13 +156,16 @@ def main():
         if params["optim"] == "sgd":
             optimizers = tf.optimizers.SGD(learning_rate=params["lr"], momentum=0.9, decay=1e-5)
 
-        callbacks = [
-            # get_lr_callback(),
-        ]
+        callbacks = []
+        if not params["lr_schedule"]:
+            if params["lr_schedule"] == "cosine":
+                callbacks.append(get_cosine_annealing(num_training_images))
+            elif params["lr_schedule"] == "linear":
+                callbacks.append(get_linear_decay())
 
         model_id = "fold_" + str(fold_idx)
 
-        train_tpu(params, create_model, optimizers, callbacks, ds_train, ds_val,
+        train(params, create_model, optimizers, callbacks, ds_train, ds_val,
                   num_training_images, model_dir, model_id, strategy)
 
 
