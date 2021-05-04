@@ -53,7 +53,7 @@ if "valid_image_size" in params and not params["valid_image_size"]:
 
 saved_path = params["saved_path"]
 model_id = "_".join([params["model_name"], str(params["image_size"]), str(params["batch_size"]), str(params["optim"]),
-                     str(params["lr_schedule"])])
+                     str(params["lr_schedule"], str(params["metric"]))])
 model_dir = os.path.join(saved_path, "saved", model_id)
 os.makedirs(model_dir, exist_ok=True)
 
@@ -65,7 +65,8 @@ image_extractor_mapper = {
     "b4": efn.EfficientNetB4,
     "b5": efn.EfficientNetB5,
     "b6": efn.EfficientNetB6,
-    "b7": efn.EfficientNetB7
+    "b7": efn.EfficientNetB7,
+    "l2": efn.EfficientNetL2
 }
 
 
