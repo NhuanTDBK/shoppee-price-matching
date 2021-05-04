@@ -126,7 +126,10 @@ def train_tpu(params: dict, model_fn,
             print("Restored from: ", ckpt_manager.latest_checkpoint)
             print(optimizer.iterations, optimizer.get_config())
             ckpt.restore(ckpt_manager.latest_checkpoint).expect_partial()
-            epochs -= tf.keras.backend.get_value(ckpt.epoch)
+            current_epoch = tf.keras.backend.get_value(ckpt.epoch)
+            epochs -= current_epoch
+            print("Resume learning rate scheduler from {}".format(current_epoch))
+            callbacks[0].count = current_epoch
         else:
             print("Start from scratch")
 
@@ -191,6 +194,7 @@ def get_cosine_annealing(params, total_size):
                                       warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
 
 
+
 def get_linear_decay(params):
     lr_start = 0.000001
     lr_max = 0.000005 * params["batch_size"]
@@ -208,7 +212,7 @@ def get_linear_decay(params):
             lr = (lr_max - lr_min) * lr_decay ** (epoch - lr_ramp_ep - lr_sus_ep) + lr_min
         return lr
 
-    lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
+    lr_callback = LearningRateSchedulerPerBatch(lrfn, verbose=True)
     return lr_callback
 
 # def get_linear_decay(params):

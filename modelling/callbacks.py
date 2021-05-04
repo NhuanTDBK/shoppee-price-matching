@@ -95,7 +95,7 @@ class EarlyStoppingByLossVal(tf.keras.callbacks.Callback):
 
         if current > self.value:
             if self.verbose > 0:
-                print("Epoch %05d: early stopping THR" % epoch+1)
+                print("Epoch %05d: early stopping THR" % epoch + 1)
             self.model.stop_training = True
 
 
@@ -191,6 +191,7 @@ class WarmUpCosineDecayScheduler(keras.callbacks.Callback):
         self.hold_base_rate_steps = hold_base_rate_steps
         self.verbose = verbose
         self.learning_rates = []
+        self.count = 0
         print("""
             Warmup step: %s,
             Warmup learning rate: %s
@@ -233,6 +234,17 @@ class CheckpointCallback(tf.keras.callbacks.Callback):
             self.ckpt_manager.checkpoint.epoch.assign(epoch)
             saved_path = self.ckpt_manager.save()
             print("Saved checkpoint: {}".format(saved_path))
+
+
+class LearningRateSchedulerPerBatch(tf.keras.callbacks.LearningRateScheduler):
+    """ Callback class to modify the default learning rate scheduler to operate each batch"""
+
+    def __init__(self, schedule, verbose=0):
+        super(LearningRateSchedulerPerBatch, self).__init__(schedule, verbose)
+        self.count = 0  # Global batch index (the regular batch argument refers to the batch index within the epoch)
+
+    def on_epoch_begin(self, epoch, logs=None):
+        super(LearningRateSchedulerPerBatch, self).on_epoch_begin(self.count + epoch, logs)
 
 
 if __name__ == '__main__':
