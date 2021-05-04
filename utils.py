@@ -143,16 +143,15 @@ def train_tpu(params: dict, model_fn,
 
     steps_per_epoch = num_training_images // params["batch_size"]
 
-
     model.fit(ds_train,
               epochs=epochs,
               steps_per_epoch=steps_per_epoch,
               validation_data=ds_val,
               callbacks=callbacks)
 
-    path = os.path.join(model_saved_dir, "emb_" + str(model_name) + ".h5")
+    path = os.path.join(model_saved_dir, "emb_" + str(model_name) + ".tf")
     print("Saved model to ", path)
-    emb_model.save_weights(path, save_format="h5",
+    emb_model.save_weights(path, save_format="tf",
                            overwrite=True)
 
     del model, emb_model
@@ -170,24 +169,16 @@ def f1_score(y_true, y_pred):
     return f1
 
 
-def hyper_search_group(df, embeddings, top_k=50):
-    from sklearn.neighbors import NearestNeighbors
-    model = NearestNeighbors(n_neighbors=top_k)
-    model.fit(embeddings)
-
-    distances, indices = model.kneighbors(embeddings)
-
-def average_expansion(embeddings, top_k = 3):
-    norm_emb = tf.math.l2_normalize(embeddings,axis=1)
-    sim_matrix = tf.linalg.matmul(norm_emb, norm_emb,transpose_b=True)
-    indices = tf.argsort(sim_matrix,direction="DESCENDING")
-    top_k_ref_mean = tf.reduce_mean(tf.gather(embeddings,indices[:,:top_k]),axis=1)
+def average_expansion(embeddings, top_k=3):
+    norm_emb = tf.math.l2_normalize(embeddings, axis=1)
+    sim_matrix = tf.linalg.matmul(norm_emb, norm_emb, transpose_b=True)
+    indices = tf.argsort(sim_matrix, direction="DESCENDING")
+    top_k_ref_mean = tf.reduce_mean(tf.gather(embeddings, indices[:, :top_k]), axis=1)
     avg_emb = tf.concat([embeddings, top_k_ref_mean])
     return avg_emb
 
 
-
-def get_cosine_annealing(params,total_size):
+def get_cosine_annealing(params, total_size):
     steps_per_epoch = total_size / params["batch_size"]
     total_steps = int(params["epochs"] * steps_per_epoch)
     warmup_steps = int(params["warmup_epoch"] * steps_per_epoch)
@@ -195,6 +186,7 @@ def get_cosine_annealing(params,total_size):
     return WarmUpCosineDecayScheduler(params["lr"], total_steps=total_steps, verbose=params["verbose"],
                                       steps_per_epoch=steps_per_epoch,
                                       warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
+
 
 def get_linear_decay(params):
     lr_start = 0.000001
