@@ -191,43 +191,43 @@ def get_cosine_annealing(params, total_size):
                                       warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
 
 
-# def get_linear_decay(params):
-#     lr_start = 0.000001
-#     lr_max = 0.000005 * params["batch_size"]
-#     lr_min = 0.000001
-#     lr_ramp_ep = 5
-#     lr_sus_ep = 0
-#     lr_decay = 0.8
-#
-#     def lrfn(epoch):
-#         if epoch < lr_ramp_ep:
-#             lr = (lr_max - lr_start) / lr_ramp_ep * epoch + lr_start
-#         elif epoch < lr_ramp_ep + lr_sus_ep:
-#             lr = lr_max
-#         else:
-#             lr = (lr_max - lr_min) * lr_decay ** (epoch - lr_ramp_ep - lr_sus_ep) + lr_min
-#         return lr
-#
-#     lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
-#     return lr_callback
-
 def get_linear_decay(params):
-    LR_START = 0.00001
-    LR_MAX = 0.00005 * 8
-    LR_MIN = 0.00001
-    LR_RAMPUP_EPOCHS = 5
-    LR_SUSTAIN_EPOCHS = 0
-    LR_EXP_DECAY = .8
+    lr_start = 0.000001
+    lr_max = 0.000005 * params["batch_size"]
+    lr_min = 0.000001
+    lr_ramp_ep = 5
+    lr_sus_ep = 0
+    lr_decay = 0.8
 
     def lrfn(epoch):
-        if epoch < LR_RAMPUP_EPOCHS:
-            lr = (LR_MAX - LR_START) / LR_RAMPUP_EPOCHS * epoch + LR_START
-        elif epoch < LR_RAMPUP_EPOCHS + LR_SUSTAIN_EPOCHS:
-            lr = LR_MAX
+        if epoch < lr_ramp_ep:
+            lr = (lr_max - lr_start) / lr_ramp_ep * epoch + lr_start
+        elif epoch < lr_ramp_ep + lr_sus_ep:
+            lr = lr_max
         else:
-            lr = (LR_MAX - LR_MIN) * LR_EXP_DECAY ** (epoch - LR_RAMPUP_EPOCHS - LR_SUSTAIN_EPOCHS) + LR_MIN
+            lr = (lr_max - lr_min) * lr_decay ** (epoch - lr_ramp_ep - lr_sus_ep) + lr_min
         return lr
 
     lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
-
     return lr_callback
+
+# def get_linear_decay(params):
+#     LR_START = 0.00001
+#     LR_MAX = 0.00005 * 8
+#     LR_MIN = 0.00001
+#     LR_RAMPUP_EPOCHS = 5
+#     LR_SUSTAIN_EPOCHS = 0
+#     LR_EXP_DECAY = .8
+#
+#     def lrfn(epoch):
+#         if epoch < LR_RAMPUP_EPOCHS:
+#             lr = (LR_MAX - LR_START) / LR_RAMPUP_EPOCHS * epoch + LR_START
+#         elif epoch < LR_RAMPUP_EPOCHS + LR_SUSTAIN_EPOCHS:
+#             lr = LR_MAX
+#         else:
+#             lr = (LR_MAX - LR_MIN) * LR_EXP_DECAY ** (epoch - LR_RAMPUP_EPOCHS - LR_SUSTAIN_EPOCHS) + LR_MIN
+#         return lr
+#
+#     lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
+#
+#     return lr_callback
