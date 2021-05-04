@@ -34,6 +34,7 @@ def parse_args():
     parser.add_argument("--check_period", type=int, default=5)
     parser.add_argument("--optim", type=str, default="adam")
     parser.add_argument("--pretrained_path", type=str)
+    parser.add_argument("--valid_image_size", type=int)
 
     args = parser.parse_args()
     params = vars(args)
@@ -46,6 +47,9 @@ SEED = 4111
 N_CLASSES = 11014
 IMAGE_SIZE = (params["image_size"], params["image_size"])
 UPSCALE_SIZE = (params["upscale_size"], params["upscale_size"])
+VALID_IMAGE_SIZE = IMAGE_SIZE
+if "valid_image_size" in params and not params["valid_image_size"]:
+    VALID_IMAGE_SIZE = (params["valid_image_size"], params["valid_image_size"])
 
 saved_path = params["saved_path"]
 model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["upscale_size"]))
@@ -73,9 +77,11 @@ def create_model():
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
     emb_model = tf.keras.Model(inputs=[inp], outputs=[emb])
 
+    print("Load pretrained {} from {}".format(IMAGE_SIZE, params["pretrained_path"]))
     emb_model.load_weights(params["pretrained_path"])
     del emb_model
 
+    print("Frozen BN layers")
     for layer in effnet.layers:
         # Frozen batch norm
         if not isinstance(layer, tf.keras.layers.BatchNormalization):
@@ -93,27 +99,6 @@ def create_model():
     emb_model = tf.keras.Model(inputs=[inp_upscale], outputs=[emb])
 
     return model, emb_model
-
-
-def get_lr_callback():
-    lr_start = 0.000001
-    lr_max = 0.000005 * params["batch_size"]
-    lr_min = 0.000001
-    lr_ramp_ep = 5
-    lr_sus_ep = 0
-    lr_decay = 0.8
-
-    def lrfn(epoch):
-        if epoch < lr_ramp_ep:
-            lr = (lr_max - lr_start) / lr_ramp_ep * epoch + lr_start
-        elif epoch < lr_ramp_ep + lr_sus_ep:
-            lr = lr_max
-        else:
-            lr = (lr_max - lr_min) * lr_decay ** (epoch - lr_ramp_ep - lr_sus_ep) + lr_min
-        return lr
-
-    lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
-    return lr_callback
 
 
 def main():
@@ -150,22 +135,23 @@ def main():
         print(f'Dataset: {num_training_images} training images')
 
         print("Get ds validation")
-        ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=IMAGE_SIZE)
+        ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=VALID_IMAGE_SIZE)
 
         optimizers = tf.optimizers.Adam(learning_rate=params["lr"])
         if params["optim"] == "sgd":
             optimizers = tf.optimizers.SGD(learning_rate=params["lr"], momentum=0.9, decay=1e-5)
 
         callbacks = []
-        if not params["lr_schedule"]:
-            if params["lr_schedule"] == "cosine":
-                callbacks.append(get_cosine_annealing(params,num_training_images))
-            elif params["lr_schedule"] == "linear":
-                callbacks.append(get_linear_decay())
+        if params["lr_schedule"] == "cosine":
+            callbacks.append(get_cosine_annealing(params, num_training_images))
+        elif params["lr_schedule"] == "linear":
+            callbacks.append(get_linear_decay(params))
 
         model_id = "fold_" + str(fold_idx)
 
-        train(params, create_model, optimizers, callbacks, ds_train, ds_val,
+        print("List callbacks: %v", callbacks)
+
+        train_tpu(params, create_model, optimizers, callbacks, ds_train, ds_val,
                   num_training_images, model_dir, model_id, strategy)
 
 
