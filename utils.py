@@ -124,7 +124,7 @@ def train_tpu(params: dict, model_fn,
 
         if ckpt_manager.latest_checkpoint:
             print("Restored from: ", ckpt_manager.latest_checkpoint)
-            print(optimizer)
+            print(optimizer.iterations, optimizer.get_config())
             ckpt.restore(ckpt_manager.latest_checkpoint).expect_partial()
             epochs -= tf.keras.backend.get_value(ckpt.epoch)
         else:
