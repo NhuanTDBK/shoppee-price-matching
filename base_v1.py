@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# In[1]:
+
+
+# !/usr/bin/env python
+# coding: utf-8
+
 # In[ ]:
 
 
@@ -207,6 +213,18 @@ def process_path(file_path, IMAGE_SIZE=(256, 256)):
     return img
 
 
+# def normalize_image(image):
+# #     image -= tf.constant([0.485 * 255, 0.456 * 255, 0.406 * 255])  # RGB
+# #     image /= tf.constant([0.229 * 255, 0.224 * 255, 0.225 * 255])  # RGB
+#     image = tf.cast(image, tf.float32) / 255.0
+#     return image
+
+# def decode_image(image_data, IMAGE_SIZE=(512, 512)):
+#     image = tf.image.decode_jpeg(image_data, channels=3)
+#     image = tf.image.resize(image, IMAGE_SIZE)
+#     image = normalize_image(image)
+#     image = tf.reshape(image, [*IMAGE_SIZE, 3])
+#     return image
 def decode_image(image_data, IMAGE_SIZE=(512, 512)):
     image = tf.image.decode_jpeg(image_data, channels=3)
     image = tf.image.resize(image, IMAGE_SIZE)
@@ -361,81 +379,38 @@ def f1_score(y_true, y_pred):
     return f1
 
 
-def get_neighbors_outlier(df, embeddings, KNN=50, alpha=3):
-    predictions = []
-    model = NearestNeighbors(n_neighbors=KNN)
-    model.fit(embeddings)
-    distances, indices = model.kneighbors(embeddings)
-    for i in range(len(distances)):
-        threshold = distances[i].mean() - alpha * distances[i].std()
-        idx = np.where(distances[i,] < threshold)[0]
-        ids = indices[i, idx]
-        posting_ids = ' '.join(df['posting_id'].iloc[ids].values)
-        predictions.append(posting_ids)
-    df['pred_matches'] = predictions
-    df['f1'] = f1_score(df['matches'], df['pred_matches'])
-    score = df['f1'].mean()
-    print("Score: ", score)
-
-
 # Function to get 50 nearest neighbors of each image and apply a distance threshold to maximize cv
-def get_neighbors(df, embeddings, KNN=50, image=True):
-    model = NearestNeighbors(n_neighbors=KNN)
-    model.fit(embeddings)
-    distances, indices = model.kneighbors(embeddings)
-
-    # Iterate through different thresholds to maximize cv, run this in interactive mode, then replace else clause with a solid threshold
-    if GET_CV:
-        if image:
-            thresholds = list(np.arange(3.0, 9.0, 0.1))
-        else:
-            thresholds = list(np.arange(15, 35, 1))
-        scores = []
-        for threshold in thresholds:
-            predictions = []
-            for k in range(embeddings.shape[0]):
-                idx = np.where(distances[k,] < threshold)[0]
-                ids = indices[k, idx]
-                posting_ids = ' '.join(df['posting_id'].iloc[ids].values)
-                predictions.append(posting_ids)
-            df['pred_matches'] = predictions
-            df['f1'] = f1_score(df['matches'], df['pred_matches'])
-            score = df['f1'].mean()
-            print(f'Our f1 score for threshold {threshold} is {score}')
-            scores.append(score)
-        thresholds_scores = pd.DataFrame({'thresholds': thresholds, 'scores': scores})
-        max_score = thresholds_scores[thresholds_scores['scores'] == thresholds_scores['scores'].max()]
-        best_threshold = max_score['thresholds'].values[0]
-        best_score = max_score['scores'].values[0]
-        print(f'Our best score is {best_score} and has a threshold {best_threshold}')
-
-        # Use threshold
-        predictions = []
-        for k in range(embeddings.shape[0]):
-            # Because we are predicting the test set that have 70K images and different label groups, confidence should be smaller
-            if image:
-                idx = np.where(distances[k,] < 3.3)[0]
-            else:
-                idx = np.where(distances[k,] < 18.0)[0]
-            ids = indices[k, idx]
-            posting_ids = df['posting_id'].iloc[ids].values
-            predictions.append(posting_ids)
-
-    # Because we are predicting the test set that have 70K images and different label groups, confidence should be smaller
+def scan_neighbor_thres(df, embeddings, LB, UB, KNN=50, image=True, metric="minkowski"):
+    if image:
+        thresholds = list(np.arange(LB, UB, 0.02))
     else:
+        thresholds = list(np.arange(LB, UB, 0.02))
+    scores = []
+    for threshold in tqdm(thresholds):
         predictions = []
-        for k in tqdm(range(embeddings.shape[0])):
-            if image:
-                idx = np.where(distances[k,] < 3.3)[0]
-            else:
-                idx = np.where(distances[k,] < 18.0)[0]
+        model = NearestNeighbors(n_neighbors=KNN, metric=metric).fit(embeddings)
+        distances, indices = model.kneighbors(embeddings)
+        for k in range(embeddings.shape[0]):
+            idx = np.where(distances[k,] < threshold)[0]
             ids = indices[k, idx]
-            posting_ids = df['posting_id'].iloc[ids].values
+            posting_ids = ' '.join(df['posting_id'].iloc[ids].values)
             predictions.append(posting_ids)
+        df['pred_matches'] = predictions
+        df['f1'] = f1_score(df['matches'], df['pred_matches'])
+        score = df['f1'].mean()
+        print(f'Our f1 score for threshold {threshold} is {score}')
+        scores.append(score)
 
-    del model, distances, indices
-    gc.collect()
-    return df, predictions
+        del model, distances, indices
+        gc.collect()
+
+    thresholds_scores = pd.DataFrame({'thresholds': thresholds, 'scores': scores})
+    max_score = thresholds_scores[thresholds_scores['scores'] == thresholds_scores['scores'].max()]
+    best_threshold = max_score['thresholds'].values[0]
+    best_score = max_score['scores'].values[0]
+    print(f'Our best score is {best_score} and has a threshold {best_threshold}')
+
+    return best_score, best_threshold
 
 
 # In[ ]:
@@ -468,7 +443,7 @@ del df
 
 if GET_CV:
     input_path = "../input/shopee-product-matching/train_images"
-    input_df_path = "/kaggle/input/shopee-product-matching/train.csv"
+    input_df_path = "../input/shopee-product-matching/train.csv"
     df = pd.read_csv(input_df_path)
     tmp = df.groupby(['label_group'])['posting_id'].unique().to_dict()
     df['matches'] = df['label_group'].map(tmp)
@@ -476,33 +451,17 @@ if GET_CV:
 else:
     print("Prediction...")
     input_path = "../input/shopee-product-matching/test_images"
-    input_df_path = "/kaggle/input/shopee-product-matching/test.csv"
+    input_df_path = "../input/shopee-product-matching/test.csv"
+
     df = pd.read_csv(input_df_path)
 
-# ## Inference
 
-
-text_embeddings = get_text_embedding(df, get_roberta_model, roberta_params, for_test=True)
-image_embeddings = get_image_embedding(df, get_resnet_model, input_path, resnet_params, for_test=True)
-
-
-# In[ ]:
-
-
-def merge(list_items):
-    final_merge = []
-    zip_items = list(zip(*(list_items)))
-    for i in range(len(zip_items)):
-        tmp = set()
-        for j in range(len(zip_items[i])):
-            tmp.update(zip_items[i][j])
-        final_merge.append(" ".join(tmp))
-    return final_merge
+# In[2]:
 
 
 def average_expansion(embeddings, top_k=3):
     norm_emb = tf.math.l2_normalize(embeddings, axis=1)
-    x = tf.constant(norm_emb, dtype=tf.float32)
+    x = tf.constant(embeddings, dtype=tf.float32)
 
     def model():
         inp = tf.keras.layers.Input(shape=(512))
@@ -517,16 +476,95 @@ def average_expansion(embeddings, top_k=3):
     return avg_emb
 
 
-text_embeddings_ae = average_expansion(text_embeddings, )
-image_embeddings_ae = average_expansion(image_embeddings, )
+# In[3]:
 
-roberta_ae_preds = get_neighbors_outlier(df, text_embeddings_ae, KNN=50)
-resnet_ae_preds = get_neighbors_outlier(df, image_embeddings_ae, KNN=50)
+
+def split_arr(txt):
+    return txt.split()
+
+
+def get_neighbors_outlier(raw_df, embeddings, KNN=50, alpha=1):
+    df = raw_df.copy(deep=True)
+    predictions = []
+    model = NearestNeighbors(n_neighbors=KNN, n_jobs=-1).fit(embeddings)
+    outlier_dist_arr = []
+    batch_size = 512
+    for batch_idx in tqdm(range(0, int(np.ceil(len(embeddings) / batch_size)))):
+        query_emb = embeddings[batch_idx * batch_size:(batch_idx + 1) * batch_size]
+        distances, indices = model.kneighbors(query_emb)
+        for i in range(len(distances)):
+            threshold = distances[i].mean() - alpha * distances[i].std()
+            idx = np.where(distances[i,] < threshold)[0]
+            ids = indices[i, idx]
+            posting_ids = ' '.join(df['posting_id'].iloc[ids].values)
+            predictions.append(posting_ids)
+
+            outlier_dist_arr.append(threshold)
+
+        del distances, indices, model
+        gc.collect()
+
+    if GET_CV:
+        df['pred_matches'] = predictions
+        df['f1'] = f1_score(df['matches'], df['pred_matches'])
+        score = df['f1'].mean()
+        print("Score: ", score)
+
+    print("Threshold stats: ", np.mean(outlier_dist_arr), np.std(outlier_dist_arr))
+    predictions = list(map(split_arr, predictions))
+
+    return df, predictions
+
+
+def merge(list_items):
+    final_merge = []
+    zip_items = list(zip(*(list_items)))
+    for i in range(len(zip_items)):
+        tmp = set()
+        for j in range(len(zip_items[i])):
+            tmp.update(zip_items[i][j])
+        final_merge.append(" ".join(tmp))
+    return final_merge
+
+
+# In[4]:
+
+
+is_test = GET_CV
+text_embeddings = get_text_embedding(df, get_roberta_model, roberta_params, for_test=is_test)
+text_embeddings_ae = average_expansion(text_embeddings, )
+del text_embeddings
+
+image_embeddings = get_image_embedding(df, get_resnet_model, input_path, resnet_params, for_test=is_test)
+image_embeddings_ae = average_expansion(image_embeddings, )
+del image_embeddings
+
+gc.collect()
+
+if GET_CV:
+    alpha = 3
+else:
+    alpha = 1
+
+_, roberta_ae_preds = get_neighbors_outlier(df, text_embeddings_ae, KNN=50, alpha=alpha)
+del text_embeddings_ae
+
+_, resnet_ae_preds = get_neighbors_outlier(df, image_embeddings_ae, KNN=50, alpha=alpha)
+del image_embeddings_ae
+
+gc.collect()
+
 final_prediction = merge([roberta_ae_preds, resnet_ae_preds])
 if GET_CV:
     df["pred_matches"] = final_prediction
     df['f1'] = f1_score(df['matches'], df['pred_matches'])
     score = df['f1'].mean()
     print("Score ", score)
+
 df["matches"] = final_prediction
 df[['posting_id', 'matches']].to_csv('submission.csv', index=False)
+
+# In[5]:
+
+
+# Score  0.6593839954037097 Single model merge

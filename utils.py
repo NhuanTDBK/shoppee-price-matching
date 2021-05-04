@@ -134,7 +134,7 @@ def train_tpu(params: dict, model_fn,
         callbacks = []
 
     if not any([isinstance(cb, EarlyStoppingByLossVal) for cb in callbacks]):
-        callbacks.append(EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91), )
+        callbacks.append(EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91,verbose=1),)
     if not any([isinstance(cb, tf.keras.callbacks.CSVLogger) for cb in callbacks]):
         callbacks.append(tf.keras.callbacks.CSVLogger(os.path.join(model_saved_dir, "training_%s.log" % model_name)), )
 
@@ -149,9 +149,12 @@ def train_tpu(params: dict, model_fn,
               validation_data=ds_val,
               callbacks=callbacks)
 
-    path = os.path.join(model_saved_dir, "emb_" + str(model_name) + ".tf")
+    path = os.path.join(model_saved_dir,model_name)
+    os.makedirs(path, exist_ok=True)
+
     print("Saved model to ", path)
-    emb_model.save_weights(path, save_format="tf",
+    emb_model.save_weights(path,
+                           save_format="tf",
                            overwrite=True)
 
     del model, emb_model
