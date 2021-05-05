@@ -1,5 +1,6 @@
 import argparse
 
+import tensorflow_addons as tfx
 import efficientnet.tfkeras as efn
 from sklearn.model_selection import KFold
 
@@ -127,7 +128,8 @@ def main():
         print("Get ds validation")
         ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=VALID_IMAGE_SIZE)
 
-        optimizers = tf.optimizers.Adam(learning_rate=params["lr"])
+        optimizers = tfx.optimizers.AdamW(weight_decay=params["weight_decay"],
+                                          learning_rate=params["lr"])
         if params["optim"] == "sgd":
             optimizers = tf.optimizers.SGD(learning_rate=params["lr"], momentum=0.9, decay=1e-5)
 

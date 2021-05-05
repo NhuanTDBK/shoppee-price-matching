@@ -95,7 +95,7 @@ class EarlyStoppingByLossVal(tf.keras.callbacks.Callback):
 
         if current > self.value:
             if self.verbose > 0:
-                print("Epoch %05d: early stopping THR" % epoch + 1)
+                print("Epoch %05d: early stopping THR" % (epoch + 1))
             self.model.stop_training = True
 
 
