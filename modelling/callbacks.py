@@ -249,8 +249,8 @@ class LearningRateSchedulerPerBatch(tf.keras.callbacks.LearningRateScheduler):
 
 if __name__ == '__main__':
     params = {
-        "batch_size": 32,
-        "epochs": 20,
+        "batch_size": 16,
+        "epochs": 40,
         "lr": 1e-3,
         "warmup_epoch": 2,
     }
