@@ -216,7 +216,7 @@ def get_cosine_annealing(params, total_size):
 
 def get_linear_decay(params):
     LR_START = 0.00001
-    LR_MAX = 0.00005 * 8
+    LR_MAX = 0.00005 * params["batch_size"]
     LR_MIN = 0.00001
     LR_RAMPUP_EPOCHS = 5
     LR_SUSTAIN_EPOCHS = 0
