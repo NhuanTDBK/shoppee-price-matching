@@ -66,7 +66,7 @@ class ArcFace(layers.Layer):
 
 
 class AdaCos(layers.Layer):
-    def __init__(self, num_classes, margin=0.0, scale=0.0,l2_wd = 0, **kwargs):
+    def __init__(self, num_classes, margin=0.0, scale=0.0,l2_wd = 1e-5, **kwargs):
         super().__init__(**kwargs)
         self.num_classes = num_classes
 
@@ -86,7 +86,8 @@ class AdaCos(layers.Layer):
             B = (1 - mask) * tf.exp(self.scale * cos)
             B_avg = tf.reduce_mean(tf.reduce_sum(B, axis=-1), axis=0)
 
-            theta = tf.acos(tf.clip_by_value(cos, -1, 1))
+            # theta = tf.acos(tf.clip_by_value(cos, -1, 1))
+            theta = tf.acos(K.clip(cos, -1.0 + K.epsilon(), 1.0 - K.epsilon()))
             # Collect cosine at true labels
             theta_true = tf.reduce_sum(mask * theta, axis=-1)
             # get median (=50-percentile)

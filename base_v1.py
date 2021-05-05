@@ -46,9 +46,8 @@ from sklearn.neighbors import NearestNeighbors
 from tqdm import tqdm
 
 
-# from cuml.neighbors import NearestNeighbors
 
-
+AUTOTUNE = tf.data.AUTOTUNE
 def convert_unicode(text):
     return codecs.escape_decode(text)[0].decode("utf-8")
 
@@ -213,29 +212,29 @@ def process_path(file_path, IMAGE_SIZE=(256, 256)):
     return img
 
 
-# def normalize_image(image):
-# #     image -= tf.constant([0.485 * 255, 0.456 * 255, 0.406 * 255])  # RGB
-# #     image /= tf.constant([0.229 * 255, 0.224 * 255, 0.225 * 255])  # RGB
-#     image = tf.cast(image, tf.float32) / 255.0
-#     return image
+def normalize_image(image):
+    image -= tf.constant([0.485 * 255, 0.456 * 255, 0.406 * 255])  # RGB
+    image /= tf.constant([0.229 * 255, 0.224 * 255, 0.225 * 255])  # RGB
+    image = tf.cast(image, tf.float32) / 255.0
+    return image
 
-# def decode_image(image_data, IMAGE_SIZE=(512, 512)):
-#     image = tf.image.decode_jpeg(image_data, channels=3)
-#     image = tf.image.resize(image, IMAGE_SIZE)
-#     image = normalize_image(image)
-#     image = tf.reshape(image, [*IMAGE_SIZE, 3])
-#     return image
 def decode_image(image_data, IMAGE_SIZE=(512, 512)):
     image = tf.image.decode_jpeg(image_data, channels=3)
     image = tf.image.resize(image, IMAGE_SIZE)
-    image = tf.cast(image, tf.float32) / 255.0
+    image = normalize_image(image)
+    image = tf.reshape(image, [*IMAGE_SIZE, 3])
     return image
+# def decode_image(image_data, IMAGE_SIZE=(512, 512)):
+#     image = tf.image.decode_jpeg(image_data, channels=3)
+#     image = tf.image.resize(image, IMAGE_SIZE)
+#     image = tf.cast(image, tf.float32) / 255.0
+#     return image
 
 
 # In[ ]:
 
 
-AUTOTUNE = tf.data.AUTOTUNE
+
 
 
 def gem(x, axis=None, power=3., eps=1e-6):
