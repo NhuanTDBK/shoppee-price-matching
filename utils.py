@@ -103,11 +103,12 @@ def train_tpu(params: dict, model_fn,
               optimizer: tf.optimizers.Optimizer,
               callbacks, ds_train, ds_val=None, num_training_images=None,
               model_saved_dir=None, model_name=None, strategy: tf.distribute.TPUStrategy = None, mode="new"):
+
     ckpt_dir = os.path.join(model_saved_dir, model_name)
     os.makedirs(ckpt_dir, exist_ok=True)
 
-    path = os.path.join(model_saved_dir, "ckpt" + model_name, "fold")
-    os.makedirs(path, exist_ok=True)
+    emb_ckpt_path = os.path.join(model_saved_dir, "ckpt" + model_name, "fold")
+    os.makedirs(emb_ckpt_path, exist_ok=True)
 
     with strategy.scope():
         loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
@@ -121,10 +122,12 @@ def train_tpu(params: dict, model_fn,
         )
 
         ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
-        if mode == "finetune":
-            ckpt_dir = params["pretrained_path"]
 
-        ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=3, )
+        restore_ckpt_dir = ckpt_dir
+        if mode == "finetune":
+            restore_ckpt_dir = params["pretrained_path"]
+
+        ckpt_manager = tf.train.CheckpointManager(ckpt, restore_ckpt_dir, max_to_keep=3, )
         epochs = params["epochs"]
 
         if ckpt_manager.latest_checkpoint:
@@ -157,11 +160,12 @@ def train_tpu(params: dict, model_fn,
         callbacks.append(tf.keras.callbacks.CSVLogger(os.path.join(model_saved_dir, "training_%s.log" % model_name)), )
 
     if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]) and params["is_checkpoint"]:
-        callbacks.append(CheckpointCallback(ckpt_manager, params["check_period"]))
+        ckpt_manager_new = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=3,)
+        callbacks.append(CheckpointCallback(ckpt_manager_new, params["check_period"]))
 
     if not any([isinstance(cb, tf.keras.callbacks.ModelCheckpoint) for cb in callbacks]):
         callbacks.append(
-            tf.keras.callbacks.ModelCheckpoint(path, verbose=1, save_best_only=True, save_weights_only=True))
+            tf.keras.callbacks.ModelCheckpoint(emb_ckpt_path, verbose=1, save_best_only=True, save_weights_only=True))
 
     if not any([isinstance(cb, tf.keras.callbacks.EarlyStopping) for cb in callbacks]):
         callbacks.append(tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=params["patience"],
@@ -175,8 +179,8 @@ def train_tpu(params: dict, model_fn,
               validation_data=ds_val,
               callbacks=callbacks)
 
-    print("Saved model to ", path)
-    emb_model.save_weights(path,
+    print("Saved model to ", emb_ckpt_path)
+    emb_model.save_weights(emb_ckpt_path,
                            save_format="tf",
                            overwrite=True)
 
