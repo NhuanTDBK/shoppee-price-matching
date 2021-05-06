@@ -34,7 +34,7 @@ def parse_args():
     parser.add_argument("--check_period", type=int, default=5)
     parser.add_argument("--optim", type=str, default="adam")
     parser.add_argument("--pretrained_path", type=str)
-    parser.add_argument("--valid_image_size", type=int)
+    parser.add_argument("--valid_image_size", type=int, required=True)
     parser.add_argument("--lr_schedule", type=str, default="")
     parser.add_argument("--is_checkpoint", type=bool, default=True)
     parser.add_argument("--patience", type=int, default=5)
@@ -48,11 +48,9 @@ params = parse_args()
 
 SEED = 4111
 N_CLASSES = 11014
-IMAGE_SIZE = (params["image_size"], params["image_size"])
+# IMAGE_SIZE = (params["image_size"], params["image_size"])
 UPSCALE_SIZE = (params["upscale_size"], params["upscale_size"])
-VALID_IMAGE_SIZE = IMAGE_SIZE
-if "valid_image_size" in params and not params["valid_image_size"]:
-    VALID_IMAGE_SIZE = (params["valid_image_size"], params["valid_image_size"])
+VALID_IMAGE_SIZE = (params["valid_image_size"], params["valid_image_size"])
 
 saved_path = params["saved_path"]
 model_id = "_".join(
@@ -139,7 +137,7 @@ def main():
             print(f'Dataset: {num_training_images} training images')
 
             print("Get ds validation")
-            ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=UPSCALE_SIZE)
+            ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=VALID_IMAGE_SIZE)
 
             optimizers = tf.optimizers.Adam(learning_rate=params["lr"])
             if params["optim"] == "sgd":
