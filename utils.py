@@ -102,7 +102,7 @@ def train(params: dict, model_fn,
 def train_tpu(params: dict, model_fn,
               optimizer: tf.optimizers.Optimizer,
               callbacks, ds_train, ds_val=None, num_training_images=None,
-              model_saved_dir=None, model_name=None, strategy: tf.distribute.TPUStrategy = None):
+              model_saved_dir=None, model_name=None, strategy: tf.distribute.TPUStrategy = None, mode="new"):
     ckpt_dir = os.path.join(model_saved_dir, model_name)
     os.makedirs(ckpt_dir, exist_ok=True)
 
@@ -121,6 +121,9 @@ def train_tpu(params: dict, model_fn,
         )
 
         ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
+        if mode == "finetune":
+            ckpt_dir = params["pretrained_path"]
+
         ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=3, )
         epochs = params["epochs"]
 
@@ -134,6 +137,14 @@ def train_tpu(params: dict, model_fn,
             callbacks[0].count = current_epoch
         else:
             print("Start from scratch")
+
+        if mode == "finetune":
+            print("Frozen batch norm")
+            for layer in model.layers:
+                if isinstance(layer, tf.keras.layers.BatchNormalization):
+                    layer.trainable = False
+                else:
+                    layer.trainable = True
 
     if not callbacks:
         callbacks = []
@@ -151,7 +162,8 @@ def train_tpu(params: dict, model_fn,
             tf.keras.callbacks.ModelCheckpoint(path, verbose=1, save_best_only=True, save_weights_only=True))
 
     if not any([isinstance(cb, tf.keras.callbacks.EarlyStopping) for cb in callbacks]):
-        callbacks.append(tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=params["patience"], restore_best_weights=True))
+        callbacks.append(tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=params["patience"],
+                                                          restore_best_weights=True))
 
     steps_per_epoch = num_training_images // params["batch_size"]
 
@@ -219,6 +231,7 @@ def get_linear_decay(params):
 
     lr_callback = LearningRateSchedulerPerBatch(lrfn, verbose=True)
     return lr_callback
+
 
 # def get_linear_decay(params):
 #     LR_START = 0.00001

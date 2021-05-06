@@ -48,7 +48,6 @@ params = parse_args()
 
 SEED = 4111
 N_CLASSES = 11014
-# IMAGE_SIZE = (params["image_size"], params["image_size"])
 UPSCALE_SIZE = (params["upscale_size"], params["upscale_size"])
 VALID_IMAGE_SIZE = (params["valid_image_size"], params["valid_image_size"])
 
@@ -71,37 +70,19 @@ image_extractor_mapper = {
 }
 
 
-def create_base_model(inp, backbone=None, weighted="imagenet"):
+
+
+def create_model():
+    inp = tf.keras.layers.Input(shape=(*UPSCALE_SIZE, 3), name='inp1')
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
-    if not backbone:
-        backbone = image_extractor_mapper[params["model_name"]](include_top=False, weights=weighted,)
-    x = backbone(inp)
-    emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
+    backbone = image_extractor_mapper[params["model_name"]](include_top=False, weights=None)
+    emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(backbone)
     x1 = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])([emb, labels_onehot])
     model = tf.keras.Model(inputs=[inp, label], outputs=[x1])
     model.summary()
 
     emb_model = tf.keras.Model(inputs=[inp], outputs=[emb])
-    return model, emb_model
-
-
-def create_model():
-    inp_base = tf.keras.layers.Input(shape=(*UPSCALE_SIZE, 3), name='inp1')
-    model, emb_model = create_base_model(inp_base)
-    ckpt = tf.train.Checkpoint(model=model, optimizer=tf.optimizers.Adam(), epoch=tf.Variable(0))
-    ckpt_manager = tf.train.CheckpointManager(ckpt, params["pretrained_path"], max_to_keep=5)
-    ckpt.restore(ckpt_manager.latest_checkpoint)
-    if ckpt_manager.latest_checkpoint:
-        print("Restored from {}".format(ckpt_manager.latest_checkpoint))
-
-    print("Frozen batch norm")
-    for layer in model.layers:
-        if isinstance(layer, tf.keras.layers.BatchNormalization):
-            layer.trainable = False
-        else:
-            layer.trainable = True
-
     return model, emb_model
 
 
@@ -154,7 +135,7 @@ def main():
             print("List callbacks: %v", callbacks)
 
             train_tpu(params, create_model, optimizers, callbacks, ds_train, ds_val,
-                      num_training_images, model_dir, model_id, strategy)
+                      num_training_images, model_dir, model_id, strategy,mode="finetune")
 
 
 if __name__ == "__main__":
