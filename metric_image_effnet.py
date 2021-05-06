@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument("--verbose", type=int, default=0)
     parser.add_argument("--resume_fold", type=int, default=None)
     parser.add_argument("--image_size", type=int, default=512)
-    parser.add_argument("--valid_image_size", type=int)
+    parser.add_argument("--valid_image_size", type=int, required=True)
     parser.add_argument("--freeze", type=bool, default=False)
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
     parser.add_argument("--check_period", type=int, default=5)
@@ -47,9 +47,7 @@ params = parse_args()
 SEED = 4111
 N_CLASSES = 11014
 IMAGE_SIZE = (params["image_size"], params["image_size"])
-VALID_IMAGE_SIZE = IMAGE_SIZE
-if ("valid_image_size" in params and not params["valid_image_size"]):
-    VALID_IMAGE_SIZE = (params["valid_image_size"], params["valid_image_size"])
+VALID_IMAGE_SIZE = (params["valid_image_size"], params["valid_image_size"])
 
 saved_path = params["saved_path"]
 model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["image_size"]))
