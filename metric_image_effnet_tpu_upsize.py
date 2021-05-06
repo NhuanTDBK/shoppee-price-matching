@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument("--input_path", type=str)
     parser.add_argument("--warmup_epoch", type=int, default=10)
     parser.add_argument("--verbose", type=int, default=0)
-    parser.add_argument("--resume_fold", type=int, default=None)
+    parser.add_argument("--resume_fold", type=int, required=True)
     parser.add_argument("--image_size", type=int, default=512)
     parser.add_argument("--upscale_size", type=int, )
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
@@ -53,8 +53,9 @@ if "valid_image_size" in params and not params["valid_image_size"]:
     VALID_IMAGE_SIZE = (params["valid_image_size"], params["valid_image_size"])
 
 saved_path = params["saved_path"]
-model_id = "_".join([params["model_name"]+"_upsize", str(params["upscale_size"]), str(params["batch_size"]), str(params["optim"]),
-                     str(params["lr_schedule"]), str(params["metric"])])
+model_id = "_".join(
+    [params["model_name"] + "_upsize", str(params["upscale_size"]), str(params["batch_size"]), str(params["optim"]),
+     str(params["lr_schedule"]), str(params["metric"])])
 model_dir = os.path.join(saved_path, "saved", model_id)
 os.makedirs(model_dir, exist_ok=True)
 
@@ -70,11 +71,11 @@ image_extractor_mapper = {
 }
 
 
-def create_base_model(inp, backbone=None):
+def create_base_model(inp, backbone=None, weighted="imagenet"):
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
     if not backbone:
-        backbone = image_extractor_mapper[params["model_name"]](include_top=False, weights="imagenet", )
+        backbone = image_extractor_mapper[params["model_name"]](include_top=False, weights=weighted, )
     x = backbone(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
     x1 = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])([emb, labels_onehot])
@@ -86,22 +87,21 @@ def create_base_model(inp, backbone=None):
 
 
 def create_model():
-    inp_base = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
-    base_model, _ = create_base_model(inp_base)
-    ckpt = tf.train.Checkpoint(model=base_model, optimizer=tf.optimizers.Adam(), epoch=tf.Variable(0))
+    inp_base = tf.keras.layers.Input(shape=(*UPSCALE_SIZE, 3), name='inp1')
+    model, emb_model = create_base_model(inp_base)
+    ckpt = tf.train.Checkpoint(model=model, optimizer=tf.optimizers.Adam(), epoch=tf.Variable(0))
     ckpt_manager = tf.train.CheckpointManager(ckpt, params["pretrained_path"], max_to_keep=5)
     ckpt.restore(ckpt_manager.latest_checkpoint)
     if ckpt_manager.latest_checkpoint:
         print("Restored from {}".format(ckpt_manager.latest_checkpoint))
 
-    backbone = base_model.layers[2]
-    for layer in backbone.layers:
-        # Frozen batch norm
-        if not isinstance(layer, tf.keras.layers.BatchNormalization):
+    print("Frozen batch norm")
+    for layer in model.layers:
+        if isinstance(layer, tf.keras.layers.BatchNormalization):
             layer.trainable = False
+        else:
+            layer.trainable = True
 
-    inp_upscale = tf.keras.layers.Input(shape=(*UPSCALE_SIZE, 3), name='inp1')
-    model, emb_model = create_base_model(inp_upscale, backbone)
     return model, emb_model
 
 
@@ -129,34 +129,32 @@ def main():
     n_folds = 5
     cv = KFold(n_folds, shuffle=True, random_state=SEED)
     for fold_idx, (train_files, valid_files) in enumerate(cv.split(files, np.arange(n_folds))):
-        if params["resume_fold"] and params["resume_fold"] != fold_idx:
-            continue
+        if params["resume_fold"] == fold_idx:
+            ds_train = get_training_dataset(files[train_files], params["batch_size"], image_size=UPSCALE_SIZE)
+            num_training_images = count_data_items(files[train_files])
+            print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
 
-        ds_train = get_training_dataset(files[train_files], params["batch_size"], image_size=IMAGE_SIZE)
-        num_training_images = count_data_items(files[train_files])
-        print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
+            print(f'Dataset: {num_training_images} training images')
 
-        print(f'Dataset: {num_training_images} training images')
+            print("Get ds validation")
+            ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=VALID_IMAGE_SIZE)
 
-        print("Get ds validation")
-        ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=VALID_IMAGE_SIZE)
+            optimizers = tf.optimizers.Adam(learning_rate=params["lr"])
+            if params["optim"] == "sgd":
+                optimizers = tf.optimizers.SGD(learning_rate=params["lr"], momentum=0.9, decay=1e-5)
 
-        optimizers = tf.optimizers.Adam(learning_rate=params["lr"])
-        if params["optim"] == "sgd":
-            optimizers = tf.optimizers.SGD(learning_rate=params["lr"], momentum=0.9, decay=1e-5)
+            callbacks = []
+            if params["lr_schedule"] == "cosine":
+                callbacks.append(get_cosine_annealing(params, num_training_images))
+            elif params["lr_schedule"] == "linear":
+                callbacks.append(get_linear_decay(params))
 
-        callbacks = []
-        if params["lr_schedule"] == "cosine":
-            callbacks.append(get_cosine_annealing(params, num_training_images))
-        elif params["lr_schedule"] == "linear":
-            callbacks.append(get_linear_decay(params))
+            model_id = "fold_" + str(fold_idx)
 
-        model_id = "fold_" + str(fold_idx)
+            print("List callbacks: %v", callbacks)
 
-        print("List callbacks: %v", callbacks)
-
-        train_tpu(params, create_model, optimizers, callbacks, ds_train, ds_val,
-                  num_training_images, model_dir, model_id, strategy)
+            train_tpu(params, create_model, optimizers, callbacks, ds_train, ds_val,
+                      num_training_images, model_dir, model_id, strategy)
 
 
 if __name__ == "__main__":
