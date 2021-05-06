@@ -133,7 +133,7 @@ def train_tpu(params: dict, model_fn,
         if ckpt_manager.latest_checkpoint:
             print("Restored from: ", ckpt_manager.latest_checkpoint)
             print(optimizer.iterations, optimizer.get_config())
-            ckpt.restore(ckpt_manager.latest_checkpoint).expect_partial()
+            ckpt.restore(ckpt_manager.latest_checkpoint)
             current_epoch = tf.keras.backend.get_value(ckpt.epoch)
 
             if mode != "finetune":
