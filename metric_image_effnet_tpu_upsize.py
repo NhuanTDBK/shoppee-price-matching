@@ -70,20 +70,37 @@ image_extractor_mapper = {
 }
 
 
-
-
 def create_model():
     inp = tf.keras.layers.Input(shape=(*UPSCALE_SIZE, 3), name='inp1')
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
-    backbone = image_extractor_mapper[params["model_name"]](include_top=False, weights=None)
-    emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(backbone)
+    effnet = image_extractor_mapper[params["model_name"]](include_top=False, weights="imagenet")
+
+    x = effnet(inp)
+    emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
+
     x1 = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])([emb, labels_onehot])
+
     model = tf.keras.Model(inputs=[inp, label], outputs=[x1])
     model.summary()
 
     emb_model = tf.keras.Model(inputs=[inp], outputs=[emb])
+
     return model, emb_model
+
+
+# def create_model():
+#     inp = tf.keras.layers.Input(shape=(*UPSCALE_SIZE, 3), name='inp1')
+#     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
+#     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
+#     backbone = image_extractor_mapper[params["model_name"]](include_top=False, weights=None)
+#     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(backbone)
+#     x1 = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])([emb, labels_onehot])
+#     model = tf.keras.Model(inputs=[inp, label], outputs=[x1])
+#     model.summary()
+#
+#     emb_model = tf.keras.Model(inputs=[inp], outputs=[emb])
+#     return model, emb_model
 
 
 def main():
@@ -135,7 +152,7 @@ def main():
             print("List callbacks: %v", callbacks)
 
             train_tpu(params, create_model, optimizers, callbacks, ds_train, ds_val,
-                      num_training_images, model_dir, model_id, strategy,mode="finetune")
+                      num_training_images, model_dir, model_id, strategy, mode="finetune")
 
 
 if __name__ == "__main__":
