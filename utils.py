@@ -103,7 +103,6 @@ def train_tpu(params: dict, model_fn,
               optimizer: tf.optimizers.Optimizer,
               callbacks, ds_train, ds_val=None, num_training_images=None,
               model_saved_dir=None, model_name=None, strategy: tf.distribute.TPUStrategy = None, mode="new"):
-
     ckpt_dir = os.path.join(model_saved_dir, model_name)
     os.makedirs(ckpt_dir, exist_ok=True)
 
@@ -160,7 +159,7 @@ def train_tpu(params: dict, model_fn,
         callbacks.append(tf.keras.callbacks.CSVLogger(os.path.join(model_saved_dir, "training_%s.log" % model_name)), )
 
     if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]) and params["is_checkpoint"]:
-        ckpt_manager_new = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=3,)
+        ckpt_manager_new = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=3, )
         callbacks.append(CheckpointCallback(ckpt_manager_new, params["check_period"]))
 
     if not any([isinstance(cb, tf.keras.callbacks.ModelCheckpoint) for cb in callbacks]):
@@ -190,10 +189,9 @@ def train_tpu(params: dict, model_fn,
 
 
 def train_tpu_finetune(params: dict, model_fn,
-              optimizer: tf.optimizers.Optimizer,
-              callbacks, ds_train, ds_val=None, num_training_images=None,
-              model_saved_dir=None, model_name=None, strategy: tf.distribute.TPUStrategy = None):
-
+                       optimizer: tf.optimizers.Optimizer,
+                       callbacks, ds_train, ds_val=None, num_training_images=None,
+                       model_saved_dir=None, model_name=None, strategy: tf.distribute.TPUStrategy = None):
     ckpt_dir = os.path.join(model_saved_dir, model_name)
     os.makedirs(ckpt_dir, exist_ok=True)
 
@@ -234,7 +232,7 @@ def train_tpu_finetune(params: dict, model_fn,
         callbacks.append(tf.keras.callbacks.CSVLogger(os.path.join(model_saved_dir, "training_%s.log" % model_name)), )
 
     if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]) and params["is_checkpoint"]:
-        ckpt_manager_new = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=3,)
+        ckpt_manager_new = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=3, )
         callbacks.append(CheckpointCallback(ckpt_manager_new, params["check_period"]))
 
     if not any([isinstance(cb, tf.keras.callbacks.ModelCheckpoint) for cb in callbacks]):

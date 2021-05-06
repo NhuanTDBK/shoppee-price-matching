@@ -151,8 +151,8 @@ def main():
 
             print("List callbacks: %v", callbacks)
 
-            train_tpu(params, create_model, optimizers, callbacks, ds_train, ds_val,
-                      num_training_images, model_dir, model_id, strategy, mode="finetune")
+            train_tpu_finetune(params, create_model, optimizers, callbacks, ds_train, ds_val,
+                               num_training_images, model_dir, model_id, strategy)
 
 
 if __name__ == "__main__":
