@@ -189,6 +189,78 @@ def train_tpu(params: dict, model_fn,
     # return model, emb_model, optimizer, loss, metrics
 
 
+def train_tpu_finetune(params: dict, model_fn,
+              optimizer: tf.optimizers.Optimizer,
+              callbacks, ds_train, ds_val=None, num_training_images=None,
+              model_saved_dir=None, model_name=None, strategy: tf.distribute.TPUStrategy = None):
+
+    ckpt_dir = os.path.join(model_saved_dir, model_name)
+    os.makedirs(ckpt_dir, exist_ok=True)
+
+    emb_ckpt_path = os.path.join(model_saved_dir, "ckpt" + model_name, "fold")
+    os.makedirs(emb_ckpt_path, exist_ok=True)
+
+    with strategy.scope():
+        loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
+        metrics = tf.keras.metrics.SparseCategoricalAccuracy()
+
+        model, emb_model = model_fn()
+        model.compile(
+            optimizer=optimizer,
+            loss=loss,
+            metrics=metrics
+        )
+
+        ckpt = tf.train.Checkpoint(model=model, optimizer=None, epoch=tf.Variable(0))
+        ckpt_manager = tf.train.CheckpointManager(ckpt, params["pretrained_path"], max_to_keep=3, )
+        if ckpt_manager.latest_checkpoint:
+            print("Restored from: ", ckpt_manager.latest_checkpoint)
+            print(optimizer.iterations, optimizer.get_config())
+            ckpt.restore(ckpt_manager.latest_checkpoint)
+
+        print("Frozen batch norm")
+        for layer in model.layers:
+            if isinstance(layer, tf.keras.layers.BatchNormalization):
+                layer.trainable = False
+            else:
+                layer.trainable = True
+
+    if not callbacks:
+        callbacks = []
+
+    if not any([isinstance(cb, EarlyStoppingByLossVal) for cb in callbacks]):
+        callbacks.append(EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91, verbose=1), )
+    if not any([isinstance(cb, tf.keras.callbacks.CSVLogger) for cb in callbacks]):
+        callbacks.append(tf.keras.callbacks.CSVLogger(os.path.join(model_saved_dir, "training_%s.log" % model_name)), )
+
+    if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]) and params["is_checkpoint"]:
+        ckpt_manager_new = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=3,)
+        callbacks.append(CheckpointCallback(ckpt_manager_new, params["check_period"]))
+
+    if not any([isinstance(cb, tf.keras.callbacks.ModelCheckpoint) for cb in callbacks]):
+        callbacks.append(
+            tf.keras.callbacks.ModelCheckpoint(emb_ckpt_path, verbose=1, save_best_only=True, save_weights_only=True))
+
+    if not any([isinstance(cb, tf.keras.callbacks.EarlyStopping) for cb in callbacks]):
+        callbacks.append(tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=params["patience"],
+                                                          restore_best_weights=True))
+
+    model.fit(ds_train,
+              epochs=params["epochs"],
+              steps_per_epoch=num_training_images // params["batch_size"],
+              validation_data=ds_val,
+              callbacks=callbacks)
+
+    print("Saved model to ", emb_ckpt_path)
+    emb_model.save_weights(emb_ckpt_path,
+                           save_format="tf",
+                           overwrite=True)
+
+    del model, emb_model
+    gc.collect()
+    # return model, emb_model, optimizer, loss, metrics
+
+
 def f1_score(y_true, y_pred):
     y_true = y_true.apply(lambda x: set(x.split()))
     y_pred = y_pred.apply(lambda x: set(x.split()))
