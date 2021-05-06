@@ -193,7 +193,7 @@ def train_tpu_finetune(params: dict, model_fn,
             metrics=metrics
         )
 
-        ckpt = tf.train.Checkpoint(model=model, optimizer=tf.keras.optimizers.Adam(), epoch=tf.Variable(0))
+        ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
         ckpt_manager = tf.train.CheckpointManager(ckpt, params["pretrained_path"], max_to_keep=3, )
         if ckpt_manager.latest_checkpoint:
             print("Restored from: ", ckpt_manager.latest_checkpoint)
