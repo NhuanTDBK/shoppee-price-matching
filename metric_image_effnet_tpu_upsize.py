@@ -37,6 +37,7 @@ def parse_args():
     parser.add_argument("--valid_image_size", type=int)
     parser.add_argument("--lr_schedule", type=str, default="")
     parser.add_argument("--is_checkpoint", type=bool, default=True)
+    parser.add_argument("--patience", type=int, default=5)
 
     args = parser.parse_args()
     params = vars(args)
