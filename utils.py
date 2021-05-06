@@ -102,7 +102,7 @@ def train(params: dict, model_fn,
 def train_tpu(params: dict, model_fn,
               optimizer: tf.optimizers.Optimizer,
               callbacks, ds_train, ds_val=None, num_training_images=None,
-              model_saved_dir=None, model_name=None, strategy: tf.distribute.TPUStrategy = None, mode="new"):
+              model_saved_dir=None, model_name=None, strategy: tf.distribute.TPUStrategy = None):
     ckpt_dir = os.path.join(model_saved_dir, model_name)
     os.makedirs(ckpt_dir, exist_ok=True)
 
@@ -121,12 +121,7 @@ def train_tpu(params: dict, model_fn,
         )
 
         ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
-
-        restore_ckpt_dir = ckpt_dir
-        if mode == "finetune":
-            restore_ckpt_dir = params["pretrained_path"]
-
-        ckpt_manager = tf.train.CheckpointManager(ckpt, restore_ckpt_dir, max_to_keep=3, )
+        ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=3, )
         epochs = params["epochs"]
 
         if ckpt_manager.latest_checkpoint:
@@ -134,21 +129,11 @@ def train_tpu(params: dict, model_fn,
             print(optimizer.iterations, optimizer.get_config())
             ckpt.restore(ckpt_manager.latest_checkpoint)
             current_epoch = tf.keras.backend.get_value(ckpt.epoch)
-
-            if mode != "finetune":
-                epochs -= current_epoch
-                print("Resume learning rate scheduler from {}".format(current_epoch))
-                callbacks[0].count = current_epoch
+            epochs -= current_epoch
+            print("Resume learning rate scheduler from {}".format(current_epoch))
+            callbacks[0].count = current_epoch
         else:
             print("Start from scratch")
-
-        if mode == "finetune":
-            print("Frozen batch norm")
-            for layer in model.layers:
-                if isinstance(layer, tf.keras.layers.BatchNormalization):
-                    layer.trainable = False
-                else:
-                    layer.trainable = True
 
     if not callbacks:
         callbacks = []
@@ -159,8 +144,7 @@ def train_tpu(params: dict, model_fn,
         callbacks.append(tf.keras.callbacks.CSVLogger(os.path.join(model_saved_dir, "training_%s.log" % model_name)), )
 
     if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]) and params["is_checkpoint"]:
-        ckpt_manager_new = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=3, )
-        callbacks.append(CheckpointCallback(ckpt_manager_new, params["check_period"]))
+        callbacks.append(CheckpointCallback(ckpt_manager, params["check_period"]))
 
     if not any([isinstance(cb, tf.keras.callbacks.ModelCheckpoint) for cb in callbacks]):
         callbacks.append(
@@ -209,7 +193,7 @@ def train_tpu_finetune(params: dict, model_fn,
             metrics=metrics
         )
 
-        ckpt = tf.train.Checkpoint(model=model, optimizer=None, epoch=tf.Variable(0))
+        ckpt = tf.train.Checkpoint(model=model, optimizer=tf.keras.optimizers.Adam(), epoch=tf.Variable(0))
         ckpt_manager = tf.train.CheckpointManager(ckpt, params["pretrained_path"], max_to_keep=3, )
         if ckpt_manager.latest_checkpoint:
             print("Restored from: ", ckpt_manager.latest_checkpoint)
