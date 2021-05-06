@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument("--verbose", type=int, default=0)
     parser.add_argument("--resume_fold", type=int, default=None)
     parser.add_argument("--image_size", type=int, default=512)
-    parser.add_argument("--upscale_size", type=int, default=512)
+    parser.add_argument("--upscale_size", type=int, )
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
     parser.add_argument("--check_period", type=int, default=5)
     parser.add_argument("--optim", type=str, default="adam")
@@ -52,7 +52,7 @@ if "valid_image_size" in params and not params["valid_image_size"]:
     VALID_IMAGE_SIZE = (params["valid_image_size"], params["valid_image_size"])
 
 saved_path = params["saved_path"]
-model_id = "_".join([params["model_name"], str(params["image_size"]), str(params["batch_size"]), str(params["optim"]),
+model_id = "_".join([params["model_name"]+"_upsize", str(params["upscale_size"]), str(params["batch_size"]), str(params["optim"]),
                      str(params["lr_schedule"]), str(params["metric"])])
 model_dir = os.path.join(saved_path, "saved", model_id)
 os.makedirs(model_dir, exist_ok=True)
@@ -69,38 +69,38 @@ image_extractor_mapper = {
 }
 
 
-def create_model():
-    inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
-
-    effnet = image_extractor_mapper[params["model_name"]](include_top=False, weights=None)
-
-    x = effnet(inp)
+def create_base_model(inp, backbone=None):
+    label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
+    labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
+    if not backbone:
+        backbone = image_extractor_mapper[params["model_name"]](include_top=False, weights="imagenet", )
+    x = backbone(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
+    x1 = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])([emb, labels_onehot])
+    model = tf.keras.Model(inputs=[inp, label], outputs=[x1])
+    model.summary()
+
     emb_model = tf.keras.Model(inputs=[inp], outputs=[emb])
+    return model, emb_model
 
-    print("Load pretrained {} from {}".format(IMAGE_SIZE, params["pretrained_path"]))
-    emb_model.load_weights(params["pretrained_path"])
-    del emb_model
 
-    print("Frozen BN layers")
-    for layer in effnet.layers:
+def create_model():
+    inp_base = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
+    base_model, _ = create_base_model(inp_base)
+    ckpt = tf.train.Checkpoint(model=base_model, optimizer=tf.optimizers.Adam(), epoch=tf.Variable(0))
+    ckpt_manager = tf.train.CheckpointManager(ckpt, params["pretrained_path"], max_to_keep=5)
+    ckpt.restore(ckpt_manager.latest_checkpoint)
+    if ckpt_manager.latest_checkpoint:
+        print("Restored from {}".format(ckpt_manager.latest_checkpoint))
+
+    backbone = base_model.layers[2]
+    for layer in backbone.layers:
         # Frozen batch norm
         if not isinstance(layer, tf.keras.layers.BatchNormalization):
             layer.trainable = False
 
     inp_upscale = tf.keras.layers.Input(shape=(*UPSCALE_SIZE, 3), name='inp1')
-    x = effnet(inp_upscale)
-    emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
-
-    label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
-    labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
-    x1 = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])([emb, labels_onehot])
-
-    model = tf.keras.Model(inputs=[inp_upscale, label], outputs=[x1])
-    model.summary()
-
-    emb_model = tf.keras.Model(inputs=[inp_upscale], outputs=[emb])
-
+    model, emb_model = create_base_model(inp_upscale, backbone)
     return model, emb_model
 
 
