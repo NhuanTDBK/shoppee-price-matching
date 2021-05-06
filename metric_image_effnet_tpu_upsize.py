@@ -35,6 +35,7 @@ def parse_args():
     parser.add_argument("--optim", type=str, default="adam")
     parser.add_argument("--pretrained_path", type=str)
     parser.add_argument("--valid_image_size", type=int)
+    parser.add_argument("--lr_schedule", type=str, default="")
 
     args = parser.parse_args()
     params = vars(args)
