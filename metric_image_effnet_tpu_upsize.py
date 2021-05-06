@@ -139,7 +139,7 @@ def main():
             print(f'Dataset: {num_training_images} training images')
 
             print("Get ds validation")
-            ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=VALID_IMAGE_SIZE)
+            ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=UPSCALE_SIZE)
 
             optimizers = tf.optimizers.Adam(learning_rate=params["lr"])
             if params["optim"] == "sgd":
