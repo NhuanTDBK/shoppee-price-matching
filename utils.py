@@ -132,9 +132,11 @@ def train_tpu(params: dict, model_fn,
             print(optimizer.iterations, optimizer.get_config())
             ckpt.restore(ckpt_manager.latest_checkpoint).expect_partial()
             current_epoch = tf.keras.backend.get_value(ckpt.epoch)
-            epochs -= current_epoch
-            print("Resume learning rate scheduler from {}".format(current_epoch))
-            callbacks[0].count = current_epoch
+
+            if mode != "finetune":
+                epochs -= current_epoch
+                print("Resume learning rate scheduler from {}".format(current_epoch))
+                callbacks[0].count = current_epoch
         else:
             print("Start from scratch")
 
