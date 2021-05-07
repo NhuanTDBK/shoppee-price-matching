@@ -1,43 +1,10 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
-# !/usr/bin/env python
-# coding: utf-8
-
-# In[ ]:
-
-
-# # This Python 3 environment comes with many helpful analytics libraries installed
-# # It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python
-# # For example, here's several helpful packages to load
-
-# import numpy as np # linear algebra
-# import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-
-# # Input data files are available in the read-only "../input/" directory
-# # For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
-
-# import os
-# for dirname, _, filenames in os.walk('/kaggle/input'):
-#     for filename in filenames:
-#         print(os.path.join(dirname, filename))
-
-# # You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using "Save & Run All"
-# # You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session
-
-
-# In[ ]:
-
-
 import codecs
 import gc
 import glob
 import os
 from enum import Enum
 
+import efficientnet.tfkeras as efn
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -45,9 +12,11 @@ import transformers
 from sklearn.neighbors import NearestNeighbors
 from tqdm import tqdm
 
-
+# from cuml.neighbors import NearestNeighbors
 
 AUTOTUNE = tf.data.AUTOTUNE
+
+
 def convert_unicode(text):
     return codecs.escape_decode(text)[0].decode("utf-8")
 
@@ -90,16 +59,9 @@ class BertLastHiddenState(tf.keras.layers.Layer):
         x_pool = None
 
         x1 = tf.concat([x[-i - 1] for i in range(self.last_hidden_states)], axis=-1)
-        if self.mode == PoolingStrategy.REDUCE_MEAN_MAX:
-            x1_mean = tf.math.reduce_mean(x1, axis=1)
-            x1_max = tf.math.reduce_max(x1, axis=1)
-            x_pool = tf.concat([x1_mean, x1_max], axis=1)
-        elif self.mode == PoolingStrategy.CONCATENATION:
-            return x1
-        elif self.mode == PoolingStrategy.REDUCE_MAX:
-            x_pool = tf.math.reduce_max(x1, axis=1)
-        elif self.mode == PoolingStrategy.REDUCE_MEAN:
-            x_pool = tf.math.reduce_mean(x1, axis=1)
+        x1_mean = tf.math.reduce_mean(x1, axis=1)
+        x1_max = tf.math.reduce_max(x1, axis=1)
+        x_pool = tf.concat([x1_mean, x1_max], axis=1)
 
         if self.multi_sample_dropout and self.fc_dim:
             dense_fc = []
@@ -148,11 +110,8 @@ def encoder(titles, params):
 
 
 def get_roberta_model(params):
-    #     config = transformers.RobertaConfig(params["model_name"])
     config = transformers.RobertaConfig.from_json_file("../input/robeata-base/bert_config.json")
     config.output_hidden_states = True
-
-    #     word_model = transformers.TFRobertaModel(config=config)
     word_model = transformers.TFRobertaModel.from_pretrained('../input/robeata-base/roberta-base-tf_model.h5',
                                                              config=config)
 
@@ -205,36 +164,39 @@ def get_text_embedding(df, func, params, for_test=False):
 # In[ ]:
 
 
-def process_path(file_path, IMAGE_SIZE=(256, 256)):
+def process_path(file_path, image_size=(256, 256)):
     # load the raw data from the file as a string
     img = tf.io.read_file(file_path)
-    img = decode_image(img, IMAGE_SIZE)
+    img = decode_image(img, image_size)
     return img
 
 
-def normalize_image(image):
-    image -= tf.constant([0.485 * 255, 0.456 * 255, 0.406 * 255])  # RGB
-    image /= tf.constant([0.229 * 255, 0.224 * 255, 0.225 * 255])  # RGB
+def decode_image(image_data, image_size=(512, 512)):
+    image = tf.image.decode_jpeg(image_data, channels=3)
+    image = tf.image.resize(image, image_size)
     image = tf.cast(image, tf.float32) / 255.0
     return image
 
-def decode_image(image_data, IMAGE_SIZE=(512, 512)):
-    image = tf.image.decode_jpeg(image_data, channels=3)
-    image = tf.image.resize(image, IMAGE_SIZE)
-    image = normalize_image(image)
-    image = tf.reshape(image, [*IMAGE_SIZE, 3])
+
+def process_path_effnet(file_path, image_size=(256, 256)):
+    # load the raw data from the file as a string
+    img = tf.io.read_file(file_path)
+    img = decode_image_effnet(img, image_size)
+    return img
+
+
+def normalize_image_effnet(image):
+    image -= tf.constant([0.485 * 255, 0.456 * 255, 0.406 * 255])  # RGB
+    image /= tf.constant([0.229 * 255, 0.224 * 255, 0.225 * 255])  # RGB
     return image
-# def decode_image(image_data, IMAGE_SIZE=(512, 512)):
-#     image = tf.image.decode_jpeg(image_data, channels=3)
-#     image = tf.image.resize(image, IMAGE_SIZE)
-#     image = tf.cast(image, tf.float32) / 255.0
-#     return image
 
 
-# In[ ]:
-
-
-
+def decode_image_effnet(image_data, image_size=(512, 512)):
+    image = tf.image.decode_jpeg(image_data, channels=3)
+    image = tf.image.resize(image, image_size)
+    image = normalize_image_effnet(image)
+    image = tf.reshape(image, [*image_size, 3])
+    return image
 
 
 def gem(x, axis=None, power=3., eps=1e-6):
@@ -287,14 +249,6 @@ class GeM(tf.keras.layers.Layer):
         return gem(x, power=self.power, eps=self.eps, axis=axis)
 
 
-pooling_dict = {
-    "gem": GeM,
-
-    "global_avg_1d": tf.keras.layers.GlobalAveragePooling1D,
-    "global_max_1d": tf.keras.layers.GlobalMaxPool1D,
-}
-
-
 class LocalGlobalExtractor(tf.keras.layers.Layer):
     def __init__(self, pool, fc_dim=512, dropout_rate=0.5, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -304,7 +258,7 @@ class LocalGlobalExtractor(tf.keras.layers.Layer):
                 tf.keras.layers.Dense(fc_dim, name="fc_lb"),
                 tf.keras.layers.BatchNormalization(name="bn_lb")
             ])
-        self.pool_layer = pooling_dict[pool]()
+        self.pool_layer = GeM()
 
     def call(self, inputs, **kwargs):
         x = inputs
@@ -312,9 +266,6 @@ class LocalGlobalExtractor(tf.keras.layers.Layer):
         x = self.fts(x)
 
         return x
-
-
-# In[ ]:
 
 
 def get_resnet_model(params):
@@ -328,7 +279,33 @@ def get_resnet_model(params):
     return emb_model
 
 
-def load_ds(filenames, image_size):
+image_extractor_mapper = {
+    "b0": efn.EfficientNetB0,
+    "b1": efn.EfficientNetB1,
+    "b2": efn.EfficientNetB2,
+    "b3": efn.EfficientNetB3,
+    "b4": efn.EfficientNetB4,
+    "b5": efn.EfficientNetB5,
+    "b6": efn.EfficientNetB6,
+    "b7": efn.EfficientNetB7,
+    "l2": efn.EfficientNetL2
+}
+
+
+def get_effnet_model(params):
+    IMAGE_SIZE = params["image_size"]
+    inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
+    effnet = image_extractor_mapper[params["model_name"]](include_top=False, weights=None)
+    x = effnet(inp)
+    emb = LocalGlobalExtractor("gem", 512, 0.5)(x)
+
+    model = tf.keras.Model(inputs=[inp], outputs=[emb])
+    #     model.summary()
+
+    return model
+
+
+def load_ds_resnet(filenames, image_size):
     ds = tf.data.Dataset.from_tensor_slices(filenames)
     ds = ds.map(lambda path: process_path(path, image_size), num_parallel_calls=AUTOTUNE)
     ds = ds.batch(512)
@@ -336,35 +313,45 @@ def load_ds(filenames, image_size):
     return ds
 
 
+def load_ds_effnet(filenames, image_size):
+    ds = tf.data.Dataset.from_tensor_slices(filenames)
+    ds = ds.map(lambda path: process_path_effnet(path, image_size), num_parallel_calls=AUTOTUNE)
+    ds = ds.batch(8)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+    return ds
+
+
 # In[ ]:
 
 
-def get_image_embedding(df, func, input_path, params, for_test=False):
+def get_image_embedding(df, load_model_func, load_ds_func, input_path, params, for_test=False):
     filenames = df["image"].map(lambda d: os.path.join(input_path, d)).tolist()
-    ds = load_ds(filenames, params["image_size"])
-
     X = np.zeros((len(df), 512))
 
+    batch_size = 128
+
     cnt = 0
-    base_model = func(params)
+    base_model = load_model_func(params)
     for fpath in glob.glob(params["path"] + "/*.h5"):
         print("Load model ", fpath)
         base_model.load_weights(fpath)
-        y_pred_proba = base_model.predict(ds, batch_size=512, verbose=1)
+        for idx in tqdm(range(0, int(np.ceil(len(filenames) / batch_size)))):
+            s, e = idx * batch_size, (idx + 1) * batch_size
+            list_of_images = filenames[idx * batch_size:(idx + 1) * batch_size]
+            ds = load_ds_func(list_of_images, params["image_size"])
+            y_pred_proba = base_model.predict(ds)
+            X[s:e] += y_pred_proba
+
+            del y_pred_proba, ds
         if for_test:
             del base_model
-            return y_pred_proba
+            return X
 
-        X += y_pred_proba
-        del y_pred_proba
         cnt += 1
 
     del base_model
     gc.collect()
     return X / cnt
-
-
-# In[ ]:
 
 
 # Function to get our f1 score
@@ -378,56 +365,70 @@ def f1_score(y_true, y_pred):
     return f1
 
 
-# Function to get 50 nearest neighbors of each image and apply a distance threshold to maximize cv
-def scan_neighbor_thres(df, embeddings, LB, UB, KNN=50, image=True, metric="minkowski"):
-    if image:
-        thresholds = list(np.arange(LB, UB, 0.02))
-    else:
-        thresholds = list(np.arange(LB, UB, 0.02))
-    scores = []
-    for threshold in tqdm(thresholds):
-        predictions = []
-        model = NearestNeighbors(n_neighbors=KNN, metric=metric).fit(embeddings)
-        distances, indices = model.kneighbors(embeddings)
-        for k in range(embeddings.shape[0]):
-            idx = np.where(distances[k,] < threshold)[0]
-            ids = indices[k, idx]
+def average_expansion(embeddings, top_k=3):
+    norm_emb = tf.math.l2_normalize(embeddings, axis=1)
+    x = tf.constant(norm_emb, dtype=embeddings.dtype)
+
+    def model():
+        inp = tf.keras.layers.Input(shape=(512), dtype=embeddings.dtype)
+        sim_matrix = tf.linalg.matmul(inp, x, transpose_b=True)
+        indices = tf.argsort(sim_matrix, direction="DESCENDING")
+        top_k_ref_mean = tf.reduce_mean(tf.gather(inp, indices[:, :top_k]), axis=1)
+        avg_emb = tf.concat([inp, top_k_ref_mean], axis=1)
+        model = tf.keras.Model(inputs=[inp], outputs=[avg_emb])
+        return model
+
+    avg_emb = model().predict(embeddings, batch_size=128, verbose=1)
+    return avg_emb
+
+
+def split_arr(txt):
+    return txt.split()
+
+
+def get_neighbors_outlier(raw_df, embeddings, KNN=50, alpha=1):
+    df = raw_df.copy(deep=True)
+    predictions = []
+    model = NearestNeighbors(n_neighbors=KNN, n_jobs=-1).fit(embeddings)
+    outlier_dist_arr = []
+    batch_size = 512
+    for batch_idx in tqdm(range(0, int(np.ceil(len(embeddings) / batch_size)))):
+        query_emb = embeddings[batch_idx * batch_size:(batch_idx + 1) * batch_size]
+        distances, indices = model.kneighbors(query_emb)
+        for i in range(len(distances)):
+            threshold = distances[i].mean() - alpha * distances[i].std()
+            idx = np.where(distances[i,] < threshold)[0]
+            ids = indices[i, idx]
             posting_ids = ' '.join(df['posting_id'].iloc[ids].values)
             predictions.append(posting_ids)
+
+            outlier_dist_arr.append(threshold)
+        del distances, indices
+
+    if GET_CV:
         df['pred_matches'] = predictions
         df['f1'] = f1_score(df['matches'], df['pred_matches'])
         score = df['f1'].mean()
-        print(f'Our f1 score for threshold {threshold} is {score}')
-        scores.append(score)
+        print("Score: ", score)
 
-        del model, distances, indices
-        gc.collect()
+    print("Threshold stats: ", np.mean(outlier_dist_arr), np.std(outlier_dist_arr))
+    predictions = list(map(split_arr, predictions))
 
-    thresholds_scores = pd.DataFrame({'thresholds': thresholds, 'scores': scores})
-    max_score = thresholds_scores[thresholds_scores['scores'] == thresholds_scores['scores'].max()]
-    best_threshold = max_score['thresholds'].values[0]
-    best_score = max_score['scores'].values[0]
-    print(f'Our best score is {best_score} and has a threshold {best_threshold}')
+    del model
+    gc.collect()
 
-    return best_score, best_threshold
+    return df, predictions
 
 
-# In[ ]:
-
-
-resnet_params = {
-    "model_name": "resnet",
-    "image_size": (224, 224),
-    "path": "../input/shopee-resnet-101",
-}
-roberta_params = {
-    "model_name": "roberta-base",
-    "max_len": 70,
-    "path": "../input/shopee-roberta-v1",
-}
-
-# In[ ]:
-
+def merge(list_items):
+    final_merge = []
+    zip_items = list(zip(*(list_items)))
+    for i in range(len(zip_items)):
+        tmp = set()
+        for j in range(len(zip_items[i])):
+            tmp.update(zip_items[i][j])
+        final_merge.append(" ".join(tmp))
+    return final_merge
 
 # Flag to get cv score
 GET_CV = True
@@ -454,106 +455,50 @@ else:
 
     df = pd.read_csv(input_df_path)
 
+resnet_params = {
+    "model_name": "resnet",
+    "image_size": (224, 224),
+    "path": "../input/shopee-resnet-101",
+}
+roberta_params = {
+    "model_name": "roberta-base",
+    "max_len": 70,
+    "path": "../input/shopee-roberta-v1",
+}
 
-# In[2]:
-
-
-def average_expansion(embeddings, top_k=3):
-    norm_emb = tf.math.l2_normalize(embeddings, axis=1)
-    x = tf.constant(embeddings, dtype=tf.float32)
-
-    def model():
-        inp = tf.keras.layers.Input(shape=(512))
-        sim_matrix = tf.linalg.matmul(inp, x, transpose_b=True)
-        indices = tf.argsort(sim_matrix, direction="DESCENDING")
-        top_k_ref_mean = tf.reduce_mean(tf.gather(inp, indices[:, :top_k]), axis=1)
-        avg_emb = tf.concat([inp, top_k_ref_mean], axis=1)
-        model = tf.keras.Model(inputs=[inp], outputs=[avg_emb])
-        return model
-
-    avg_emb = model().predict(embeddings, batch_size=128, verbose=1)
-    return avg_emb
-
-
-# In[3]:
-
-
-def split_arr(txt):
-    return txt.split()
-
-
-def get_neighbors_outlier(raw_df, embeddings, KNN=50, alpha=1):
-    df = raw_df.copy(deep=True)
-    predictions = []
-    model = NearestNeighbors(n_neighbors=KNN, n_jobs=-1).fit(embeddings)
-    outlier_dist_arr = []
-    batch_size = 512
-    for batch_idx in tqdm(range(0, int(np.ceil(len(embeddings) / batch_size)))):
-        query_emb = embeddings[batch_idx * batch_size:(batch_idx + 1) * batch_size]
-        distances, indices = model.kneighbors(query_emb)
-        for i in range(len(distances)):
-            threshold = distances[i].mean() - alpha * distances[i].std()
-            idx = np.where(distances[i,] < threshold)[0]
-            ids = indices[i, idx]
-            posting_ids = ' '.join(df['posting_id'].iloc[ids].values)
-            predictions.append(posting_ids)
-
-            outlier_dist_arr.append(threshold)
-
-        del distances, indices, model
-        gc.collect()
-
-    if GET_CV:
-        df['pred_matches'] = predictions
-        df['f1'] = f1_score(df['matches'], df['pred_matches'])
-        score = df['f1'].mean()
-        print("Score: ", score)
-
-    print("Threshold stats: ", np.mean(outlier_dist_arr), np.std(outlier_dist_arr))
-    predictions = list(map(split_arr, predictions))
-
-    return df, predictions
-
-
-def merge(list_items):
-    final_merge = []
-    zip_items = list(zip(*(list_items)))
-    for i in range(len(zip_items)):
-        tmp = set()
-        for j in range(len(zip_items[i])):
-            tmp.update(zip_items[i][j])
-        final_merge.append(" ".join(tmp))
-    return final_merge
-
-
-# In[4]:
-
+effnet_b5_params = {
+    "model_name": "b5",
+    "image_size": (512, 512),
+    "path": "../input/shopee-eff-b5-512"
+}
 
 is_test = GET_CV
+image_embeddings = get_image_embedding(df, get_effnet_model, load_ds_resnet, input_path, effnet_b5_params,
+                                       for_test=is_test)
+image_embeddings_ae = average_expansion(image_embeddings, )
+del image_embeddings
+
 text_embeddings = get_text_embedding(df, get_roberta_model, roberta_params, for_test=is_test)
 text_embeddings_ae = average_expansion(text_embeddings, )
 del text_embeddings
 
-image_embeddings = get_image_embedding(df, get_resnet_model, input_path, resnet_params, for_test=is_test)
-image_embeddings_ae = average_expansion(image_embeddings, )
-del image_embeddings
+
 
 gc.collect()
 
+alpha = 1
 if GET_CV:
     alpha = 3
-else:
-    alpha = 1
 
 _, roberta_ae_preds = get_neighbors_outlier(df, text_embeddings_ae, KNN=50, alpha=alpha)
 del text_embeddings_ae
 
-_, resnet_ae_preds = get_neighbors_outlier(df, image_embeddings_ae, KNN=50, alpha=alpha)
+_, effnet_ae_preds = get_neighbors_outlier(df, image_embeddings_ae, KNN=50, alpha=alpha)
 del image_embeddings_ae
 
 gc.collect()
 
-final_prediction = merge([roberta_ae_preds, resnet_ae_preds])
+final_prediction = merge([roberta_ae_preds, effnet_ae_preds])
 if GET_CV:
     df["pred_matches"] = final_prediction
     df['f1'] = f1_score(df['matches'], df['pred_matches'])
@@ -562,8 +507,3 @@ if GET_CV:
 
 df["matches"] = final_prediction
 df[['posting_id', 'matches']].to_csv('submission.csv', index=False)
-
-# In[5]:
-
-
-# Score  0.6593839954037097 Single model merge

@@ -234,9 +234,9 @@ def train_tpu_finetune(params: dict, model_fn,
               callbacks=callbacks)
 
     print("Saved model to ", emb_ckpt_path)
-    emb_model.save_weights(emb_ckpt_path,
-                           save_format="tf",
-                           overwrite=True)
+    # emb_model.save_weights(emb_ckpt_path,
+    #                        save_format="tf",
+    #                        overwrite=True)
 
     del model, emb_model
     gc.collect()
