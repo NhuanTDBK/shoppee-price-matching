@@ -1,19 +1,17 @@
 import argparse
 
-import efficientnet.tfkeras as efn
+import tensorflow_addons as tfx
 from sklearn.model_selection import KFold
 
-import tensorflow_addons as tfx
 from features.img import *
 from features.pool import LocalGlobalExtractor
 from modelling.metrics import MetricLearner
-
 from utils import *
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", type=str, default='effb7')
+    parser.add_argument("--model_name", type=str, default='resnet101')
     parser.add_argument("--epochs", type=int, default=25)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--margin", type=float, default=0.3)
@@ -61,14 +59,12 @@ model_dir = os.path.join(saved_path, "saved", model_id)
 os.makedirs(model_dir, exist_ok=True)
 
 image_extractor_mapper = {
-    "b0": efn.EfficientNetB0,
-    "b1": efn.EfficientNetB1,
-    "b2": efn.EfficientNetB2,
-    "b3": efn.EfficientNetB3,
-    "b4": efn.EfficientNetB4,
-    "b5": efn.EfficientNetB5,
-    "b6": efn.EfficientNetB6,
-    "b7": efn.EfficientNetB7
+    "resnet50": tf.keras.applications.ResNet50,
+    "resnet101": tf.keras.applications.ResNet101,
+    "resnet101_v2": tf.keras.applications.ResNet101V2,
+    "resnet150": tf.keras.applications.ResNet152,
+    "resnet150_v2": tf.keras.applications.ResNet152V2,
+    "inception_resnet_v2": tf.keras.applications.InceptionResNetV2
 }
 
 
