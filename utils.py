@@ -48,6 +48,8 @@ def train(params: dict, model_fn,
     model, emb_model = model_fn()
     model.compile(optimizer, loss, metrics)
 
+    path = os.path.join(model_saved_dir, "ckpt" + model_name, "fold")
+
     ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
 
     ckpt_dir = os.path.join(model_saved_dir, model_name)
@@ -65,14 +67,20 @@ def train(params: dict, model_fn,
         callbacks = []
 
     if not any([isinstance(cb, EarlyStoppingByLossVal) for cb in callbacks]):
-        callbacks.append(EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91), )
-    if not any([isinstance(cb, tf.keras.callbacks.TensorBoard) for cb in callbacks]):
-        callbacks.append(tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5, ))
+        callbacks.append(EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91, verbose=1), )
     if not any([isinstance(cb, tf.keras.callbacks.CSVLogger) for cb in callbacks]):
         callbacks.append(tf.keras.callbacks.CSVLogger(os.path.join(model_saved_dir, "training_%s.log" % model_name)), )
 
     if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]) and params["is_checkpoint"]:
         callbacks.append(CheckpointCallback(ckpt_manager, params["check_period"]))
+
+    if not any([isinstance(cb, tf.keras.callbacks.ModelCheckpoint) for cb in callbacks]):
+        callbacks.append(
+            tf.keras.callbacks.ModelCheckpoint(ckpt_dir, verbose=1, save_best_only=True, save_weights_only=True))
+
+    if not any([isinstance(cb, tf.keras.callbacks.EarlyStopping) for cb in callbacks]):
+        callbacks.append(tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=params["patience"],
+                                                          restore_best_weights=True))
 
     steps_per_epoch = num_training_images // params["batch_size"]
     epochs = params["epochs"]

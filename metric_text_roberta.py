@@ -1,19 +1,16 @@
 import argparse
-import os
-import random
 from typing import Union
 
-import numpy as np
 import pandas as pd
-import tensorflow as tf
+import tensorflow_addons as tfx
 import transformers
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
 
 from features.pool import BertLastHiddenState, PoolingStrategy
-from modelling.callbacks import EarlyStoppingByLossVal, LRFinder
 from modelling.metrics import MetricLearner
 from text.extractor import convert_unicode
+from utils import *
 
 SEED = 4111
 
@@ -112,24 +109,6 @@ def create_model():
     return model, emb_model
 
 
-def get_create_optimizer(total_samples=None):
-    if not params["use_swa"]:
-        return tf.keras.optimizers.Adam(learning_rate=params["lr"])
-
-    num_train_steps = (total_samples / params["batch_size"]) * params["epochs"]
-    base_opt, lr_schedule = transformers.create_optimizer(params["lr"],
-                                                          num_train_steps=num_train_steps,
-                                                          num_warmup_steps=int(
-                                                              num_train_steps * params["warmup_ratio"]),
-                                                          weight_decay_rate=params["weight_decay"]
-                                                          )
-
-    # opt = tfx.optimizers.SWA(base_opt, start_averaging=int(num_train_steps * params["swa_ratio"]),
-    #                          average_period=params["swa_freq"])
-
-    return base_opt, lr_schedule
-
-
 def main():
     seed_everything(SEED)
 
@@ -150,36 +129,13 @@ def main():
         X_train, y_train, X_test, y_test = (X[0][train_idx], X[1][train_idx], X[2][train_idx]), y[train_idx], (
             X[0][test_idx], X[1][test_idx], X[2][test_idx]), y[test_idx]
 
-        model, emb_model = create_model()
+        opt = tfx.optimizers.AdamW(weight_decay=params["weight_decay"],
+                                   learning_rate=params["lr"])
 
-        opt, _ = get_create_optimizer(total_samples=len(train_idx))
-
-        model.compile(
-            optimizer=opt,
-            loss=tf.keras.losses.CategoricalCrossentropy(),
-            metrics=tf.keras.metrics.CategoricalAccuracy(),
-        )
-
-        callbacks = [
-            tf.keras.callbacks.TensorBoard(write_graph=False, histogram_freq=5, update_freq=5, ),
-            tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=2, restore_best_weights=True),
-            tf.keras.callbacks.ModelCheckpoint(os.path.join(model_dir, "weights.h5"),
-                                               monitor='val_loss',
-                                               verbose=1,
-                                               save_best_only=True,
-                                               save_weights_only=True,
-                                               mode='min'),
-            EarlyStoppingByLossVal(monitor="categorical_accuracy", value=0.91),
-            LRFinder(min_lr=params["lr"], max_lr=0.0001),
-        ]
-
-        model.fit([X_train, y_train], y_train,
-                  epochs=params["epochs"],
-                  batch_size=params["batch_size"],
-                  validation_data=([X_test, y_test], y_test),
-                  callbacks=callbacks)
-
-        emb_model.save_weights(os.path.join(model_dir, "fold_" + str(fold_idx)), save_format="h5", overwrite=True)
+        train(params, create_model, optimizer=opt, loss=tf.keras.losses.CategoricalCrossentropy(label_smoothing=0.01),
+              metrics=tf.keras.metrics.CategoricalAccuracy(), callbacks=None, ds_train=[X_train, y_train],
+              ds_val=[X_test, y_test], num_training_images=len(X_train[0]), model_saved_dir=model_dir,
+              model_name="fold_%s" % str(fold_idx))
 
 
 if __name__ == "__main__":
