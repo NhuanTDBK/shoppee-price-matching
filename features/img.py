@@ -52,6 +52,7 @@ def decode_image(image_data, IMAGE_SIZE=(512, 512)):
 def resize(img, h, w):
     return tf.image.resize(img, (tf.cast(h, tf.int32), tf.cast(w, tf.int32)))
 
+
 def decode_image_random_scale(image_data, IMAGE_SIZE=(512, 512), scale_range=(256, 512)):
     image = tf.image.decode_jpeg(image_data, channels=3)
 
@@ -59,16 +60,14 @@ def decode_image_random_scale(image_data, IMAGE_SIZE=(512, 512), scale_range=(25
     height, width = shape[0], shape[1]
     scale = tf.round(tf.random.uniform(shape=[], minval=scale_range[0], maxval=scale_range[1]))
     scale = tf.cast(scale, tf.int32)
-    image = tf.cond(width <= height, resize(image, scale, tf.round(scale * height / width)),
-                    resize(image, tf.round(scale * width / height), scale))
+    image = tf.cond(tf.less_equal(width, height), lambda: resize(image, scale, tf.round(scale * height / width)),
+                    lambda: resize(image, tf.round(scale * width / height), scale))
 
     image = tf.image.random_crop(image, (224, 224, 3))
     image = normalize_image(image)
+
     image = tf.reshape(image, [224, 224, 3])
     return image
-
-
-
 
 
 def iso_scale(img: tf.Tensor, scale_range=(256, 512)):
