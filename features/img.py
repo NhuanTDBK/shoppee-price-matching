@@ -42,8 +42,8 @@ def normalize_image(image):
 
 def decode_image(image_data, IMAGE_SIZE=(512, 512)):
     image = tf.image.decode_jpeg(image_data, channels=3)
-    image = tf.image.resize(image, (IMAGE_SIZE[0] + 30, IMAGE_SIZE[1] + 30))
-    image = tf.image.random_crop(image, (IMAGE_SIZE[0], IMAGE_SIZE[1], 3))
+    image = tf.image.resize(image, (IMAGE_SIZE[0], IMAGE_SIZE[1]))
+    image = tf.image.random_crop(image, (224,224, 3))
     image = normalize_image(image)
     image = tf.reshape(image, [*IMAGE_SIZE, 3])
     return image
@@ -80,7 +80,7 @@ def get_training_dataset(filenames, batch_size, ordered=False, image_size=(512, 
     dataset = dataset.map(data_augment, num_parallel_calls=AUTO)
     dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
     dataset = dataset.repeat()
-    dataset = dataset.shuffle(2048)
+    dataset = dataset.shuffle(1024)
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(AUTO)
 
