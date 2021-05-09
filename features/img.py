@@ -42,7 +42,7 @@ def normalize_image(image):
 
 def decode_image(image_data, IMAGE_SIZE=(512, 512)):
     image = tf.image.decode_jpeg(image_data, channels=3)
-    image = tf.image.resize(image, (IMAGE_SIZE[0]+8, IMAGE_SIZE[1]+8))
+    image = tf.image.resize(image, (IMAGE_SIZE[0] + 8, IMAGE_SIZE[1] + 8))
     image = tf.image.random_crop(image, (224, 224, 3))
     image = normalize_image(image)
     image = tf.reshape(image, [224, 224, 3])
@@ -60,9 +60,9 @@ def decode_image_random_scale(image_data, IMAGE_SIZE=(512, 512)):
 
 def iso_scale(img, scale_range=(256, 512)):
     height, width, _ = img.shape
-    scale = tf.round(tf.random.uniform(shape=[], minval=scale_range[0], maxval=scale_range[1]).numpy(), 1)
-    img = tf.cond(width <= height, tf.image.resize(img, (scale, tf.round(scale * height / width))),
-                  tf.image.resize((tf.round(scale * width / height), scale)))
+    scale = tf.cast(tf.round(tf.random.uniform(shape=[], minval=scale_range[0], maxval=scale_range[1])), tf.int32)
+    img = tf.cond(width <= height, tf.image.resize(img, (scale, tf.cast(tf.round(scale * height / width))), tf.int32),
+                  tf.image.resize((tf.cast(tf.round(scale * width / height), tf.int32), scale)))
     return img
 
 
