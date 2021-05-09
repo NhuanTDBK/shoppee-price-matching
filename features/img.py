@@ -42,7 +42,7 @@ def normalize_image(image):
 
 def decode_image(image_data, IMAGE_SIZE=(512, 512)):
     image = tf.image.decode_jpeg(image_data, channels=3)
-    image = tf.image.resize(image, (IMAGE_SIZE[0], IMAGE_SIZE[1]))
+    image = tf.image.resize(image, (IMAGE_SIZE[0]+8, IMAGE_SIZE[1]+8))
     image = tf.image.random_crop(image, (224, 224, 3))
     image = normalize_image(image)
     image = tf.reshape(image, [224, 224, 3])
