@@ -58,11 +58,18 @@ def decode_image_random_scale(image_data, IMAGE_SIZE=(512, 512)):
     return image
 
 
-def iso_scale(img, scale_range=(256, 512)):
-    height, width, _ = img.shape
-    scale = tf.cast(tf.round(tf.random.uniform(shape=[], minval=scale_range[0], maxval=scale_range[1])), tf.int32)
-    img = tf.cond(width <= height, tf.image.resize(img, (scale, tf.cast(tf.round(scale * height / width))), tf.int32),
-                  tf.image.resize((tf.cast(tf.round(scale * width / height), tf.int32), scale)))
+def resize(img, h, w):
+    return tf.image.resize(img, (tf.cast(h,tf.int32), tf.cast(w,tf.int32)))
+
+
+def iso_scale(img:tf.Tensor, scale_range=(256, 512)):
+    # height, width, _ = img.shape
+    # shape = img.get_shape().as_list()
+    shape = img.get_shape()
+    height, width = shape[0], shape[1]
+    scale = tf.round(tf.random.uniform(shape=[], minval=scale_range[0], maxval=scale_range[1]))
+    scale = tf.cast(scale, tf.int32)
+    img = tf.cond(width <= height, resize(img,scale, tf.round(scale * height / width)),resize(img,tf.round(scale * width / height),scale))
     return img
 
 
