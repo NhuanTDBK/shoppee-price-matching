@@ -147,7 +147,7 @@ def train_tpu(params: dict, model_fn,
         callbacks = []
 
     if not any([isinstance(cb, EarlyStoppingByLossVal) for cb in callbacks]):
-        callbacks.append(EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91, verbose=1), )
+        callbacks.append(EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.95, verbose=1), )
     # if not any([isinstance(cb, tf.keras.callbacks.CSVLogger) for cb in callbacks]):
     #     callbacks.append(tf.keras.callbacks.CSVLogger(os.path.join(model_saved_dir, "training_%s.log" % model_name)), )
 
