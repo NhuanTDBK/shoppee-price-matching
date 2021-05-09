@@ -148,15 +148,15 @@ def train_tpu(params: dict, model_fn,
 
     if not any([isinstance(cb, EarlyStoppingByLossVal) for cb in callbacks]):
         callbacks.append(EarlyStoppingByLossVal(monitor="sparse_categorical_accuracy", value=0.91, verbose=1), )
-    if not any([isinstance(cb, tf.keras.callbacks.CSVLogger) for cb in callbacks]):
-        callbacks.append(tf.keras.callbacks.CSVLogger(os.path.join(model_saved_dir, "training_%s.log" % model_name)), )
+    # if not any([isinstance(cb, tf.keras.callbacks.CSVLogger) for cb in callbacks]):
+    #     callbacks.append(tf.keras.callbacks.CSVLogger(os.path.join(model_saved_dir, "training_%s.log" % model_name)), )
 
     if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]) and params["is_checkpoint"]:
         callbacks.append(CheckpointCallback(ckpt_manager, params["check_period"]))
 
-    if not any([isinstance(cb, tf.keras.callbacks.ModelCheckpoint) for cb in callbacks]):
-        callbacks.append(
-            tf.keras.callbacks.ModelCheckpoint(emb_ckpt_path, verbose=1, save_best_only=True, save_weights_only=True))
+    # if not any([isinstance(cb, tf.keras.callbacks.ModelCheckpoint) for cb in callbacks]):
+    #     callbacks.append(
+    #         tf.keras.callbacks.ModelCheckpoint(emb_ckpt_path, verbose=1, save_best_only=True, save_weights_only=True))
 
     if not any([isinstance(cb, tf.keras.callbacks.EarlyStopping) for cb in callbacks]):
         callbacks.append(tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=params["patience"],
