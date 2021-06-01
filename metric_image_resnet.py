@@ -126,6 +126,7 @@ def main():
 
         callbacks = [
             get_lr_callback(num_training_images),
+            tf.keras.callbacks.TensorBoard(log_dir="logs-{}".format(fold_idx),histogram_freq=2)
         ]
 
         model_id = "fold_" + str(fold_idx)
