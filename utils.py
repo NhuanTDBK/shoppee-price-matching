@@ -49,6 +49,7 @@ def train(params: dict, model_fn,
     model.compile(optimizer, loss, metrics)
 
     path = os.path.join(model_saved_dir, "ckpt" + model_name, "fold")
+    os.makedirs(path, exist_ok=True)
 
     ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
 
