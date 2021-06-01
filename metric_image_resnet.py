@@ -115,10 +115,10 @@ def main():
         ds_train = get_training_dataset(train_files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE)
         ds_val = get_validation_dataset(valid_files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE)
 
-        num_training_images = count_data_items(train_files[train_idx])
+        num_training_images = count_data_items(train_files[fold_idx])
         print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
 
-        num_valid_images = count_data_items(valid_files[train_idx])
+        num_valid_images = count_data_items(valid_files[fold_idx])
         print("Get fold %s, ds valid, %s images" % (fold_idx + 1, num_valid_images))
 
         optimizers = tf.optimizers.Adam(learning_rate=params["lr"])
