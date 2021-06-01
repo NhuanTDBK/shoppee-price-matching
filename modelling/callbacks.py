@@ -1,10 +1,25 @@
 import glob
 
 import numpy as np
-# from keras.callbacks import Callback
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import backend as K
+
+
+# class FbetaScoreCallback(tf.keras.callbacks.Callback):
+#     def __init__(self, beta,X_val, y_val, seq_lengths):
+#         super(FbetaScoreCallback).__init__()
+#         self.beta = beta
+#         self.X_val = X_val
+#         self.y_val = y_val
+#         self.seq_lengths = seq_lengths
+#
+#     def on_epoch_end(self, epoch, logs=None):
+#         y_pred_proba = np.argmax(self.model.predict(self.X_val, batch_size=32),axis=-1)
+#         np.mask_indices()
+
+
+
 
 
 class LRFinder(tf.keras.callbacks.Callback):
