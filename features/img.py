@@ -35,8 +35,9 @@ def data_augment(posting_id, image, label_group, matches):
 
 
 def normalize_image(image):
-    image -= tf.constant([0.485 * 255, 0.456 * 255, 0.406 * 255])  # RGB
-    image /= tf.constant([0.229 * 255, 0.224 * 255, 0.225 * 255])  # RGB
+    # image -= tf.constant([0.485 * 255, 0.456 * 255, 0.406 * 255])  # RGB
+    # image /= tf.constant([0.229 * 255, 0.224 * 255, 0.225 * 255])  # RGB
+    image = tf.cast(image, tf.float32) / 255.0
     return image
 
 
@@ -50,7 +51,7 @@ def decode_image(image_data, IMAGE_SIZE=(512, 512)):
 
 
 def resize(img, h, w):
-    return tf.image.resize(img, (tf.cast(h, tf.int32), tf.cast(w, tf.int32)))
+    return tf.image.resize(img, (tf.int32(h), tf.cast(w, tf.int32)))
 
 
 def decode_image_random_scale(image_data, IMAGE_SIZE=(512, 512), scale_range=(256, 512)):
@@ -60,7 +61,8 @@ def decode_image_random_scale(image_data, IMAGE_SIZE=(512, 512), scale_range=(25
     height, width = shape[0], shape[1]
     scale = tf.round(tf.random.uniform(shape=[], minval=scale_range[0], maxval=scale_range[1]))
     scale = tf.cast(scale, tf.int32)
-    image = tf.cond(tf.less_equal(width, height), lambda: resize(image, scale, tf.round(scale * height / width)),
+    image = tf.cond(tf.less_equal(width, height),
+                    lambda: resize(image, scale, tf.round(scale * height / width)),
                     lambda: resize(image, tf.round(scale * width / height), scale))
 
     image = tf.image.random_crop(image, (224, 224, 3))
@@ -70,16 +72,59 @@ def decode_image_random_scale(image_data, IMAGE_SIZE=(512, 512), scale_range=(25
     return image
 
 
-def iso_scale(img: tf.Tensor, scale_range=(256, 512)):
-    # height, width, _ = img.shape
-    # shape = img.get_shape().as_list()
-    shape = img.get_shape()
-    height, width = shape[0], shape[1]
-    scale = tf.round(tf.random.uniform(shape=[], minval=scale_range[0], maxval=scale_range[1]))
-    scale = tf.cast(scale, tf.int32)
-    img = tf.cond(width <= height, resize(img, scale, tf.round(scale * height / width)),
-                  resize(img, tf.round(scale * width / height), scale))
-    return img
+def crop_center(img, image_size, crop_size):
+    h, w = image_size[0], image_size[1]
+    crop_h, crop_w = crop_size[0], crop_size[1]
+
+    if crop_h > h or crop_w > w:
+        return tf.image.resize(img, (crop_h, crop_w))
+
+    crop_top = int(round((h - crop_h) / 2.))
+    crop_left = int(round((w - crop_w) / 2.))
+
+    image = tf.image.crop_to_bounding_box(
+        img, crop_top, crop_left, crop_h, crop_w)
+    return image
+
+
+def crop_top_left(img, image_size, crop_size):
+    h, w = image_size[0], image_size[1]
+    crop_h, crop_w = crop_size[0], crop_size[1]
+
+    if crop_h > h or crop_w > w:
+        return tf.image.resize(img, (crop_h, crop_w))
+
+    return tf.image.crop_to_bounding_box(img, 0, 0, crop_size[0], crop_size[1])
+
+
+def crop_top_right(img, image_size, crop_size):
+    h, w = image_size[0], image_size[1]
+    crop_h, crop_w = crop_size[0], crop_size[1]
+
+    if crop_h > h or crop_w > w:
+        return tf.image.resize(img, (crop_h, crop_w))
+
+    return tf.image.crop_to_bounding_box(img, 0, w - crop_w, crop_size[0], crop_size[1])
+
+
+def crop_bottom_left(img, image_size, crop_size):
+    h, w = image_size[0], image_size[1]
+    crop_h, crop_w = crop_size[0], crop_size[1]
+
+    if crop_h > h or crop_w > w:
+        return tf.image.resize(img, (crop_h, crop_w))
+
+    return tf.image.crop_to_bounding_box(img, h - crop_h, 0, crop_size[0], crop_size[1])
+
+
+def crop_bottom_right(img, image_size, crop_size):
+    h, w = image_size[0], image_size[1]
+    crop_h, crop_w = crop_size[0], crop_size[1]
+
+    if crop_h > h or crop_w > w:
+        return tf.image.resize(img, (crop_h, crop_w))
+
+    return tf.image.crop_to_bounding_box(img, h - crop_h, w - crop_w, crop_size[0], crop_size[1])
 
 
 # This function parse our images and also get the target variable
