@@ -34,6 +34,7 @@ def parse_args():
     parser.add_argument("--image_size", type=int, default=512)
     parser.add_argument("--check_period", type=int, default=5)
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
+    parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--is_checkpoint", type=bool, default=True)
 
     args = parser.parse_args()
