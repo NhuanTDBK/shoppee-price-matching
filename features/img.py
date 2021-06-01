@@ -27,11 +27,11 @@ def data_augment(posting_id, image, label_group, matches):
 
 
 # Function to decode our images
-# def decode_image(image_data, IMAGE_SIZE=(512, 512)):
-#     image = tf.image.decode_jpeg(image_data, channels=3)
-#     image = tf.image.resize(image, IMAGE_SIZE)
-#     # image = tf.cast(image, tf.float32) / 255.0
-#     return image
+def decode_image(image_data, IMAGE_SIZE=(512, 512)):
+    image = tf.image.decode_jpeg(image_data, channels=3)
+    image = tf.image.resize(image, IMAGE_SIZE)
+    # image = tf.cast(image, tf.float32) / 255.0
+    return image
 
 
 def normalize_image(image):
@@ -41,13 +41,13 @@ def normalize_image(image):
     return image
 
 
-def decode_image(image_data, IMAGE_SIZE=(512, 512)):
-    image = tf.image.decode_jpeg(image_data, channels=3)
-    image = tf.image.resize(image, (IMAGE_SIZE[0] + 8, IMAGE_SIZE[1] + 8))
-    image = tf.image.random_crop(image, (224, 224, 3))
-    image = normalize_image(image)
-    image = tf.reshape(image, [224, 224, 3])
-    return image
+# def decode_image(image_data, IMAGE_SIZE=(512, 512)):
+#     image = tf.image.decode_jpeg(image_data, channels=3)
+#     image = tf.image.resize(image, (IMAGE_SIZE[0] + 8, IMAGE_SIZE[1] + 8))
+#     image = tf.image.random_crop(image, (224, 224, 3))
+#     image = normalize_image(image)
+#     image = tf.reshape(image, (*IMAGE_SIZE, 3))
+#     return image
 
 
 def resize(img, h, w):
