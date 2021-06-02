@@ -2,7 +2,6 @@ import argparse
 
 import transformers
 from sklearn.model_selection import KFold
-from transformers import BertTokenizer
 
 # from features.img import *
 from features.pool import BertLastHiddenState
@@ -15,7 +14,9 @@ image_feature_description = {
     'image': tf.io.FixedLenFeature([], tf.string),
     'label_group': tf.io.FixedLenFeature([], tf.int64),
     'matches': tf.io.FixedLenFeature([], tf.string),
-    'title': tf.io.FixedLenFeature([], tf.string)
+    'ids': tf.io.FixedLenFeature([], tf.int64),
+    'atts': tf.io.FixedLenFeature([], tf.int64),
+    'toks': tf.io.FixedLenFeature([], tf.int64)
 }
 
 
@@ -83,7 +84,11 @@ class Example(object):
         self.image = example["image"]
         self.label_group = tf.cast(example['label_group'], tf.int32)
         self.matches = example['matches']
-        self.title = example["title"]
+        self.ids = example["ids"]
+        self.atts = example["atts"]
+        self.toks = example["toks"]
+
+        # self.title = example["title"]
 
         return self
 
@@ -202,28 +207,25 @@ def decode_image(image_data, IMAGE_SIZE=(512, 512)):
 
 
 # This function parse our images and also get the target variable
-def read_labeled_tfrecord(example, tokenizer, decode_func, image_size=(512, 512)):
+def read_labeled_tfrecord(example, decode_func, image_size=(512, 512)):
     example = Example().parse(example)
 
-    enc = tokenizer.encode_plus(example.title,
-                                padding="max_length",
-                                max_length=params["max_len"],
-                                truncation=True,
-                                add_special_tokens=True,
-                                return_tensors='tf',
-                                return_attention_mask=True,
-                                return_token_type_ids=True)
+    # enc = tokenizer.encode_plus(example.title.numpy(),
+    #                             padding="max_length",
+    #                             max_length=params["max_len"],
+    #                             truncation=True,
+    #                             add_special_tokens=True,
+    #                             return_tensors='tf',
+    #                             return_attention_mask=True,
+    #                             return_token_type_ids=True)
 
     example.image = decode_func(example.image, image_size)
-    example.ids = enc["input_ids"]
-    example.atts = enc["attention_mask"]
-    example.toks = enc["token_type_ids"]
 
     return example
 
 
 # This function loads TF Records and parse them into tensors
-def load_dataset(filenames, tokenizer, ordered=False, image_size=(512, 512)):
+def load_dataset(filenames, ordered=False, image_size=(512, 512)):
     ignore_order = tf.data.Options()
     if not ordered:
         ignore_order.experimental_deterministic = False
@@ -232,15 +234,15 @@ def load_dataset(filenames, tokenizer, ordered=False, image_size=(512, 512)):
     dataset = dataset.cache()
     dataset = dataset.with_options(ignore_order)
     dataset = dataset.map(
-        lambda example: read_labeled_tfrecord(example, tokenizer, decode_image, image_size=image_size),
+        lambda example: read_labeled_tfrecord(example, decode_image, image_size=image_size),
         num_parallel_calls=AUTO)
 
     return dataset
 
 
-def get_training_dataset(filenames, tokenizer: transformers.BertTokenizer, batch_size, ordered=False,
+def get_training_dataset(filenames, batch_size, ordered=False,
                          image_size=(512, 512)):
-    dataset = load_dataset(filenames, tokenizer, ordered=ordered, image_size=image_size)
+    dataset = load_dataset(filenames, ordered=ordered, image_size=image_size)
     dataset = dataset.map(data_augment, num_parallel_calls=AUTO)
     dataset = dataset.map(example_format, num_parallel_calls=AUTO)
     dataset = dataset.repeat()
@@ -252,9 +254,9 @@ def get_training_dataset(filenames, tokenizer: transformers.BertTokenizer, batch
 
 
 # This function is to get our validation tensors
-def get_validation_dataset(filenames, tokenizer: transformers.BertTokenizer, batch_size, ordered=True,
+def get_validation_dataset(filenames, batch_size, ordered=True,
                            image_size=(512, 512)):
-    dataset = load_dataset(filenames, tokenizer, ordered=ordered, image_size=image_size)
+    dataset = load_dataset(filenames, ordered=ordered, image_size=image_size)
     dataset = dataset.map(example_format, num_parallel_calls=AUTO)
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(AUTO)
@@ -278,9 +280,9 @@ def main():
         if params["resume_fold"] and params["resume_fold"] != fold_idx:
             continue
 
-        ds_train = get_training_dataset(train_files[fold_idx], get_tokenizer(), params["batch_size"],
+        ds_train = get_training_dataset(train_files[fold_idx], params["batch_size"],
                                         image_size=IMAGE_SIZE)
-        ds_val = get_validation_dataset(valid_files[fold_idx], get_tokenizer(), params["batch_size"],
+        ds_val = get_validation_dataset(valid_files[fold_idx], params["batch_size"],
                                         image_size=IMAGE_SIZE)
 
         num_training_images = count_data_items(train_files[[fold_idx]])
