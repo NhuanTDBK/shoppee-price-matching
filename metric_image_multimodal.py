@@ -66,33 +66,6 @@ model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["
 os.makedirs(model_dir, exist_ok=True)
 
 
-class Example(object):
-    posting_id: str
-    image: bytes
-    label_group: int
-    matches: str
-
-    title: str
-    ids: np.ndarray
-    atts: np.ndarray
-    toks: np.ndarray
-
-    def parse(self, ex):
-        example = tf.io.parse_single_example(ex, image_feature_description)
-
-        self.posting_id = example['posting_id']
-        self.image = example["image"]
-        self.label_group = tf.cast(example['label_group'], tf.int32)
-        self.matches = example['matches']
-        self.ids = example["ids"]
-        self.atts = example["atts"]
-        self.toks = example["toks"]
-
-        # self.title = example["title"]
-
-        return self
-
-
 def create_image_model(inp):
     image_extractor_mapper = {
         "resnet50": tf.keras.applications.ResNet50,
@@ -173,23 +146,20 @@ def get_tokenizer():
     return tokenizer
 
 
-def example_format(example: Example):
-    return {'inp_image': example.image, 'label': example.label_group, 'ids': example.ids, 'atts': example.atts,
-            'toks': example.toks}, example.label_group
+def example_format(image, ids, atts, toks, label_group):
+    return {'inp_image': image, 'label': label_group, "ids": ids, "atts": atts, "toks": toks}, label_group
 
 
 # Data augmentation function
-def data_augment(example: Example):
-    image = tf.image.random_flip_left_right(example.image)
+def data_augment(image, ids, atts, toks, label_group):
+    image = tf.image.random_flip_left_right(image)
     # image = tf.image.random_flip_up_down(image)
     image = tf.image.random_hue(image, 0.01)
     image = tf.image.random_saturation(image, 0.70, 1.30)
     image = tf.image.random_contrast(image, 0.80, 1.20)
     image = tf.image.random_brightness(image, 0.10)
 
-    example.image = image
-
-    return example
+    return image, ids, atts, toks, label_group
 
 
 def normalize_image(image):
@@ -208,20 +178,15 @@ def decode_image(image_data, IMAGE_SIZE=(512, 512)):
 
 # This function parse our images and also get the target variable
 def read_labeled_tfrecord(example, decode_func, image_size=(512, 512)):
-    example = Example().parse(example)
+    row = tf.io.parse_single_example(example, image_feature_description)
 
-    # enc = tokenizer.encode_plus(example.title.numpy(),
-    #                             padding="max_length",
-    #                             max_length=params["max_len"],
-    #                             truncation=True,
-    #                             add_special_tokens=True,
-    #                             return_tensors='tf',
-    #                             return_attention_mask=True,
-    #                             return_token_type_ids=True)
+    image = decode_func(row["image"], image_size)
+    label_group = tf.cast(row['label_group'], tf.int32)
+    ids = row["ids"]
+    atts = row["atts"]
+    toks = row["toks"]
 
-    example.image = decode_func(example.image, image_size)
-
-    return example
+    return image, ids, atts, toks, label_group
 
 
 # This function loads TF Records and parse them into tensors
