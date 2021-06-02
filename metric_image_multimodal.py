@@ -48,6 +48,7 @@ def parse_args():
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
     parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--is_checkpoint", type=bool, default=True)
+    parser.add_argument("--multi_dropout", type=bool, default=False)
 
     args = parser.parse_args()
     params = vars(args)
