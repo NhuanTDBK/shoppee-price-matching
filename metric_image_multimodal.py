@@ -14,9 +14,9 @@ image_feature_description = {
     'image': tf.io.FixedLenFeature([], tf.string),
     'label_group': tf.io.FixedLenFeature([], tf.int64),
     'matches': tf.io.FixedLenFeature([], tf.string),
-    'ids': tf.io.FixedLenFeature([], tf.int64),
-    'atts': tf.io.FixedLenFeature([], tf.int64),
-    'toks': tf.io.FixedLenFeature([], tf.int64)
+    'ids': tf.io.FixedLenFeature([70], tf.int64),
+    'atts': tf.io.FixedLenFeature([70], tf.int64),
+    'toks': tf.io.FixedLenFeature([70], tf.int64)
 }
 
 
