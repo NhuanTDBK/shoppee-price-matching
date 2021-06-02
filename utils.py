@@ -48,8 +48,7 @@ def train(params: dict, model_fn,
     model, emb_model = model_fn()
     model.compile(optimizer, loss, metrics)
 
-    path = os.path.join(model_saved_dir, "ckpt" + model_name, "fold")
-    os.makedirs(path, exist_ok=True)
+    path = os.path.join(model_saved_dir, model_name+".h5")
 
     ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
 
@@ -100,7 +99,8 @@ def train(params: dict, model_fn,
               callbacks=callbacks)
 
     print("Saved model to ", path)
-    emb_model.save_weights(path, save_format="h5",
+    emb_model.save_weights(path,
+                           save_format="h5",
                            overwrite=True)
 
     del model, emb_model

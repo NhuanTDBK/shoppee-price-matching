@@ -1,6 +1,7 @@
 import argparse
 
 import transformers
+import tensorflow_addons as tfx
 from sklearn.model_selection import KFold
 
 # from features.img import *
@@ -112,7 +113,7 @@ def create_model():
     inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp_image')
     image_emb = create_image_model(inp)
 
-    concat_emb = tf.concat([text_emb, image_emb], axis=0)
+    concat_emb = tf.concat([text_emb, image_emb], axis=1)
 
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='label')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
@@ -262,14 +263,17 @@ def main():
         optimizers = tf.optimizers.Adam(learning_rate=params["lr"])
 
         loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
-        metrics = tf.keras.metrics.SparseCategoricalAccuracy()
+        metrics = [
+            tf.keras.metrics.SparseCategoricalAccuracy(),
+            tfx.metrics.F1Score(2),
+        ]
 
         callbacks = [
             get_lr_callback(num_training_images),
             tf.keras.callbacks.TensorBoard(log_dir="logs-{}".format(fold_idx), histogram_freq=2)
         ]
 
-        model_id = "fold_" + str(fold_idx)
+        model_id = "{}_fold_{}".format(params["model_name"],fold_idx)
         train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val,
               num_training_images, model_dir, model_id)
 
