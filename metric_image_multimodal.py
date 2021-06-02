@@ -22,6 +22,7 @@ image_feature_description = {
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--max_len", type=int, default=70)
+    parser.add_argument("--model_name", type=str, default='multimodal')
     parser.add_argument("--image_model_name", type=str, default='resnet50')
     parser.add_argument("--text_model_name", type=str, default='bert-base-multilingual-uncased')
     parser.add_argument("--epochs", type=int, default=25)
