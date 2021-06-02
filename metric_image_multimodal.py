@@ -265,7 +265,7 @@ def main():
         loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
         metrics = [
             tf.keras.metrics.SparseCategoricalAccuracy(),
-            tfx.metrics.F1Score(2,average="micro"),
+            tfx.metrics.F1Score(N_CLASSES,average="micro"),
         ]
 
         callbacks = [
