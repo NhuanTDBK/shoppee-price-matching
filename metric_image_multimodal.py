@@ -164,7 +164,7 @@ def get_lr_callback(total_size):
 
 
 def get_tokenizer():
-    tokenizer = BertTokenizer.from_pretrained(params["model_name"])
+    tokenizer = transformers.XLMRobertaTokenizer.from_pretrained(params["text_model_name"])
     return tokenizer
 
 
