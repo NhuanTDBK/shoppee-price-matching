@@ -4,7 +4,7 @@ import transformers
 from sklearn.model_selection import KFold
 
 # from features.img import *
-from features.pool import BertLastHiddenState
+from features.pool import BertLastHiddenState, PoolingStrategy
 from features.pool import LocalGlobalExtractor
 from modelling.metrics import MetricLearner
 from utils import *
@@ -30,10 +30,12 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--margin", type=float, default=0.3)
     parser.add_argument("--s", type=float, default=30)
-    parser.add_argument("--pool", type=str, default="gem")
+    parser.add_argument("--image_pool", type=str, default="gem")
+    parser.add_argument("--text_pool", type=str, default=PoolingStrategy.REDUCE_MEAN_MAX)
     parser.add_argument("--dropout", type=float, default=0.5)
     parser.add_argument("--last_hidden_states", type=int, default=3)
-    parser.add_argument("--fc_dim", type=int, default=512)
+    parser.add_argument("--image_fc_dim", type=int, default=512)
+    parser.add_argument("--text_fc_dim", type=int, default=512)
     parser.add_argument("--lr", type=float, default=0.00001)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
     parser.add_argument("--l2_wd", type=float, default=1e-5)
@@ -83,7 +85,7 @@ def create_image_model(inp):
         layer.trainable = True
 
     x = resnet(inp)
-    emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
+    emb = LocalGlobalExtractor(params["image_pool"], params["image_fc_dim"], params["dropout"])(x)
 
     return emb
 
@@ -96,8 +98,8 @@ def create_text_model(ids, att, tok):
 
     x = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
     return BertLastHiddenState(last_hidden_states=params["last_hidden_states"],
-                               mode=params["pool"],
-                               fc_dim=params["fc_dim"],
+                               mode=params["text_pool"],
+                               fc_dim=params["text_fc_dim"],
                                multi_sample_dropout=params["multi_dropout"])(x)
 
 
