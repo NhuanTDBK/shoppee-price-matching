@@ -243,8 +243,8 @@ class CheckpointCallback(tf.keras.callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         if epoch % self.period == 0:
-            for f in glob.glob(self.ckpt_manager.directory + "/ckpt-*"):
-                open(f, "w").close()
+            # for f in glob.glob(self.ckpt_manager.directory + "/ckpt-*"):
+            #     open(f, "w").close()
 
             self.ckpt_manager.checkpoint.epoch.assign(epoch)
             saved_path = self.ckpt_manager.save()
