@@ -48,14 +48,12 @@ def train(params: dict, model_fn,
     model, emb_model = model_fn()
     model.compile(optimizer, loss, metrics)
 
-    path = os.path.join(model_saved_dir, model_name+".h5")
-
     ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
 
     ckpt_dir = os.path.join(model_saved_dir, model_name)
     os.makedirs(ckpt_dir, exist_ok=True)
 
-    ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=1, )
+    ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=1,)
 
     model.compile(
         optimizer=optimizer,
@@ -99,6 +97,7 @@ def train(params: dict, model_fn,
               validation_data=ds_val,
               callbacks=callbacks)
 
+    path = os.path.join(model_saved_dir, model_name + ".h5")
     print("Saved model to ", path)
     emb_model.save_weights(path,
                            save_format="h5",
