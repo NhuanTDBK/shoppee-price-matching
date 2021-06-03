@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument("--text_fc_dim", type=int, default=512)
     parser.add_argument("--lr", type=float, default=0.00001)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
-    parser.add_argument("--l2_wd", type=float, default=1e-5)
+    parser.add_argument("--l2_wd", type=float, default=0)
     parser.add_argument("--metric", type=str, default="adacos")
     parser.add_argument("--input_path", type=str)
     parser.add_argument("--smooth_ce", type=float, default=0.0)
