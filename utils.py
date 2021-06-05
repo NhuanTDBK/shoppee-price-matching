@@ -95,7 +95,7 @@ def train(params: dict, model_fn,
               epochs=epochs,
               steps_per_epoch=steps_per_epoch,
               validation_data=ds_val,
-              callbacks=callbacks,sample_weight=weights)
+              callbacks=callbacks,class_weight=weights)
 
     path = os.path.join(model_saved_dir, model_name + ".h5")
     print("Saved model to ", path)

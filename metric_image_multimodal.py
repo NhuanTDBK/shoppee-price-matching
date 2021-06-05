@@ -92,12 +92,12 @@ def create_image_model(inp):
 
 def create_text_model(ids, att, tok):
     config = transformers.XLMRobertaConfig.from_pretrained(params["text_model_name"])
-    config.output_hidden_states = True
+    # config.output_hidden_states = True
 
     word_model = transformers.TFXLMRobertaModel.from_pretrained(params["text_model_name"], config=config)
 
-    x = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
-    x = tf.keras.layers.GlobalAveragePooling1D()(x)
+    x = word_model(ids, attention_mask=att, token_type_ids=tok)[0]
+    # x = tf.keras.layers.GlobalAveragePooling1D()(x)
     x = tf.keras.layers.BatchNormalization()(x)
 
     return x
@@ -259,6 +259,7 @@ def main():
         weights[i] += 1
 
     weights = 1.0 / np.log(weights+1)
+    class_weights = {k: v for k, v in enumerate(weights)}
 
     for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(train_files, np.arange(n_folds))):
         if params["resume_fold"] and params["resume_fold"] != fold_idx:
@@ -290,7 +291,7 @@ def main():
 
         model_id = "{}_fold_{}".format(params["model_name"], fold_idx)
         train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val,
-              num_training_images, model_dir, model_id,weights)
+              num_training_images, model_dir, model_id,class_weights)
 
 
 if __name__ == "__main__":
