@@ -254,7 +254,7 @@ def main():
     df = pd.read_csv("./train.csv")
     df["label_group"] = LabelEncoder().fit(df["label_group"].tolist())
 
-    weights = np.zeros(len(df["label_group"].nunique()))
+    weights = np.zeros(df["label_group"].nunique())
     for i in df["label_group"].tolist():
         weights[i] += 1
 
