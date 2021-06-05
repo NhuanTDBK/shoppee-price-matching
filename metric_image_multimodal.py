@@ -96,7 +96,7 @@ def create_text_model(ids, att, tok):
 
     word_model = transformers.TFXLMRobertaModel.from_pretrained(params["text_model_name"], config=config)
 
-    x = word_model(ids, attention_mask=att, token_type_ids=tok)[0]
+    x = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
     # x = tf.keras.layers.GlobalAveragePooling1D()(x)
     x = tf.keras.layers.BatchNormalization()(x)
 

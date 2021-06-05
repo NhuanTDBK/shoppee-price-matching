@@ -198,7 +198,7 @@ class LocalGlobalExtractor(tf.keras.layers.Layer):
         self.fts = tf.keras.models.Sequential(
             [
                 tf.keras.layers.Dropout(dropout_rate,name="dropout_lb"),
-                # tf.keras.layers.Dense(fc_dim,name="fc_lb"),
+                tf.keras.layers.Dense(fc_dim,name="fc_lb"),
                 tf.keras.layers.BatchNormalization(name="bn_lb")
             ])
         self.pool_layer = pooling_dict[pool]()
