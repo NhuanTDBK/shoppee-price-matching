@@ -39,8 +39,6 @@ class BertLastHiddenState(tf.keras.layers.Layer):
     def call(self, inputs, **kwargs):
         x = inputs
 
-        x_pool = None
-
         x1 = tf.concat([x[-i - 1] for i in range(self.last_hidden_states)], axis=-1)
         if self.mode == PoolingStrategy.REDUCE_MEAN_MAX:
             x1_mean = tf.math.reduce_mean(x1, axis=1)
@@ -200,7 +198,7 @@ class LocalGlobalExtractor(tf.keras.layers.Layer):
         self.fts = tf.keras.models.Sequential(
             [
                 tf.keras.layers.Dropout(dropout_rate,name="dropout_lb"),
-                tf.keras.layers.Dense(fc_dim,name="fc_lb"),
+                # tf.keras.layers.Dense(fc_dim,name="fc_lb"),
                 tf.keras.layers.BatchNormalization(name="bn_lb")
             ])
         self.pool_layer = pooling_dict[pool]()

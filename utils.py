@@ -44,7 +44,7 @@ def get_disk_path():
 def train(params: dict, model_fn,
           optimizer: tf.optimizers.Optimizer,
           loss: tf.keras.losses.Loss, metrics, callbacks, ds_train, ds_val=None, num_training_images=None,
-          model_saved_dir=None, model_name=None):
+          model_saved_dir=None, model_name=None,weights=None):
     model, emb_model = model_fn()
     model.compile(optimizer, loss, metrics)
 
@@ -95,7 +95,7 @@ def train(params: dict, model_fn,
               epochs=epochs,
               steps_per_epoch=steps_per_epoch,
               validation_data=ds_val,
-              callbacks=callbacks)
+              callbacks=callbacks,sample_weight=weights)
 
     path = os.path.join(model_saved_dir, model_name + ".h5")
     print("Saved model to ", path)

@@ -1,12 +1,11 @@
 import argparse
 
 import transformers
-import tensorflow_addons as tfx
 from sklearn.model_selection import KFold
-
-# from features.img import *
-from features.pool import BertLastHiddenState, PoolingStrategy
+from sklearn.preprocessing import LabelEncoder
 from features.pool import LocalGlobalExtractor
+# from features.img import *
+from features.pool import PoolingStrategy
 from modelling.metrics import MetricLearner
 from utils import *
 
@@ -98,10 +97,15 @@ def create_text_model(ids, att, tok):
     word_model = transformers.TFXLMRobertaModel.from_pretrained(params["text_model_name"], config=config)
 
     x = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
-    return BertLastHiddenState(last_hidden_states=params["last_hidden_states"],
-                               mode=params["text_pool"],
-                               fc_dim=params["text_fc_dim"],
-                               multi_sample_dropout=params["multi_dropout"])(x)
+    x = tf.keras.layers.GlobalAveragePooling1D(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+
+    return x
+
+    # return BertLastHiddenState(last_hidden_states=params["last_hidden_states"],
+    #                            mode=params["text_pool"],
+    #                            fc_dim=params["text_fc_dim"],
+    #                            multi_sample_dropout=params["multi_dropout"])(x)
 
 
 def create_model():
@@ -245,6 +249,17 @@ def main():
 
     n_folds = 5
     cv = KFold(n_folds, shuffle=True, random_state=SEED)
+
+    import pandas as pd
+    df = pd.read_csv("./train.csv")
+    df["label_group"] = LabelEncoder().fit(df["label_group"].tolist())
+
+    weights = np.zeros(len(df["label_group"].nunique()))
+    for i in df["label_group"].tolist():
+        weights[i] += 1
+
+    weights = 1.0 / np.log(weights+1)
+
     for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(train_files, np.arange(n_folds))):
         if params["resume_fold"] and params["resume_fold"] != fold_idx:
             continue
@@ -264,7 +279,8 @@ def main():
 
         loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
         metrics = [
-            tf.keras.metrics.SparseCategoricalAccuracy()
+            tf.keras.metrics.SparseCategoricalAccuracy(),
+            tf.keras.metrics.SparseTopKCategoricalAccuracy(k=3),
         ]
 
         callbacks = [
@@ -272,9 +288,9 @@ def main():
             tf.keras.callbacks.TensorBoard(log_dir="logs-{}".format(fold_idx), histogram_freq=2)
         ]
 
-        model_id = "{}_fold_{}".format(params["model_name"],fold_idx)
+        model_id = "{}_fold_{}".format(params["model_name"], fold_idx)
         train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val,
-              num_training_images, model_dir, model_id)
+              num_training_images, model_dir, model_id,weights)
 
 
 if __name__ == "__main__":
