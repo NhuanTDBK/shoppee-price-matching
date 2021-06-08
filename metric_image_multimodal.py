@@ -192,7 +192,7 @@ def read_labeled_tfrecord_train(example, image_size=(224, 224)):
     return image, ids, atts, toks, label_group
 
 
-def read_labeled_tfrecord_val(example, crop_image_size=(224, 224), scale=256):
+def read_labeled_tfrecord_val(example, image_size=(224, 224), scale=256):
     row = tf.io.parse_single_example(example, image_feature_description)
 
     label_group = tf.cast(row['label_group'], tf.int32)
@@ -210,7 +210,7 @@ def read_labeled_tfrecord_val(example, crop_image_size=(224, 224), scale=256):
                     lambda: resize(image, scale, tf.round(scale * height / width)),
                     lambda: resize(image, tf.round(scale * width / height), scale))
 
-    image = crop_center(image, original_shape, crop_image_size)
+    image = crop_center(image, original_shape, image_size)
     image = normalize_image(image)
 
     return image, ids, atts, toks, label_group
