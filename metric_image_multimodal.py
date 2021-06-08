@@ -3,8 +3,8 @@ import argparse
 import transformers
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import LabelEncoder
+
 from features.pool import LocalGlobalExtractor
-# from features.img import *
 from features.pool import PoolingStrategy
 from modelling.metrics import MetricLearner
 from utils import *
@@ -57,18 +57,6 @@ def parse_args():
     return params
 
 
-params = parse_args()
-
-AUTO = tf.data.experimental.AUTOTUNE
-SEED = 4111
-N_CLASSES = 11014
-IMAGE_SIZE = (params["image_size"], params["image_size"])
-
-saved_path = params["saved_path"]
-model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["image_size"]))
-os.makedirs(model_dir, exist_ok=True)
-
-
 def create_image_model(inp):
     image_extractor_mapper = {
         "resnet50": tf.keras.applications.ResNet50,
@@ -97,15 +85,9 @@ def create_text_model(ids, att, tok):
     word_model = transformers.TFXLMRobertaModel.from_pretrained(params["text_model_name"], config=config)
 
     x = word_model(ids, attention_mask=att, token_type_ids=tok)[-1]
-    # x = tf.keras.layers.GlobalAveragePooling1D()(x)
     x = tf.keras.layers.BatchNormalization()(x)
 
     return x
-
-    # return BertLastHiddenState(last_hidden_states=params["last_hidden_states"],
-    #                            mode=params["text_pool"],
-    #                            fc_dim=params["text_fc_dim"],
-    #                            multi_sample_dropout=params["multi_dropout"])(x)
 
 
 def create_model():
@@ -158,8 +140,27 @@ def example_format(image, ids, atts, toks, label_group):
     return {'inp_image': image, 'label': label_group, "ids": ids, "atts": atts, "toks": toks}, label_group
 
 
+def resize(img, h, w):
+    return tf.image.resize(img, (tf.int32(h), tf.cast(w, tf.int32)))
+
+
+def crop_center(img, image_size, crop_size):
+    h, w = image_size[0], image_size[1]
+    crop_h, crop_w = crop_size[0], crop_size[1]
+
+    if crop_h > h or crop_w > w:
+        return tf.image.resize(img, (crop_h, crop_w))
+
+    crop_top = int(round((h - crop_h) / 2.))
+    crop_left = int(round((w - crop_w) / 2.))
+
+    image = tf.image.crop_to_bounding_box(
+        img, crop_top, crop_left, crop_h, crop_w)
+    return image
+
+
 # Data augmentation function
-def data_augment(image, ids, atts, toks, label_group):
+def data_augment(image):
     image = tf.image.random_flip_left_right(image)
     # image = tf.image.random_flip_up_down(image)
     image = tf.image.random_hue(image, 0.01)
@@ -167,56 +168,68 @@ def data_augment(image, ids, atts, toks, label_group):
     image = tf.image.random_contrast(image, 0.80, 1.20)
     image = tf.image.random_brightness(image, 0.10)
 
-    return image, ids, atts, toks, label_group
-
-
-def normalize_image(image):
-    image = tf.cast(image, tf.float32) / 255.0
     return image
 
 
-# Function to decode our images
-def decode_image(image_data, IMAGE_SIZE=(512, 512)):
-    image = tf.image.decode_jpeg(image_data, channels=3)
-    image = tf.image.resize(image, IMAGE_SIZE)
-    image = normalize_image(image)
-
+def normalize_image(image):
+    image -= tf.constant([0.485 * 255, 0.456 * 255, 0.406 * 255])  # RGB
+    image /= tf.constant([0.229 * 255, 0.224 * 255, 0.225 * 255])  # RGB
     return image
 
 
 # This function parse our images and also get the target variable
-def read_labeled_tfrecord(example, decode_func, image_size=(512, 512)):
+def read_labeled_tfrecord_train(example, image_size=(224, 224)):
     row = tf.io.parse_single_example(example, image_feature_description)
-
-    image = decode_func(row["image"], image_size)
     label_group = tf.cast(row['label_group'], tf.int32)
     ids = row["ids"]
     atts = row["atts"]
     toks = row["toks"]
 
+    image = tf.image.decode_jpeg(row["image"], channels=3)
+    image = tf.image.random_crop(image, image_size, name="random_crop")
+    image = data_augment(image)
+    image = normalize_image(image)
+
+    return image, ids, atts, toks, label_group
+
+
+def read_labeled_tfrecord_val(example, crop_image_size=(224, 224), scale=256):
+    row = tf.io.parse_single_example(example, image_feature_description)
+
+    label_group = tf.cast(row['label_group'], tf.int32)
+    ids = row["ids"]
+    atts = row["atts"]
+    toks = row["toks"]
+
+    original_shape = tf.io.extract_jpeg_shape(row["image"])
+    height, width = original_shape[0], original_shape[1]
+
+    image = tf.image.decode_jpeg(row["image"], channels=3)
+    image = tf.cond(tf.less_equal(width, height),
+                    lambda: resize(image, scale, tf.round(scale * height / width)),
+                    lambda: resize(image, tf.round(scale * width / height), scale))
+
+    image = crop_center(image, original_shape, crop_image_size)
+    image = normalize_image(image)
+
     return image, ids, atts, toks, label_group
 
 
 # This function loads TF Records and parse them into tensors
-def load_dataset(filenames, ordered=False, image_size=(512, 512)):
+def load_dataset(filenames, decode_tf_record_fn, ordered=False, image_size=(224, 224)):
     ignore_order = tf.data.Options()
     if not ordered:
         ignore_order.experimental_deterministic = False
 
     dataset = tf.data.TFRecordDataset(filenames, num_parallel_reads=AUTO)
-    dataset = dataset.cache()
     dataset = dataset.with_options(ignore_order)
-    dataset = dataset.map(
-        lambda example: read_labeled_tfrecord(example, decode_image, image_size=image_size),
-        num_parallel_calls=AUTO)
+    dataset = dataset.map(lambda example: decode_tf_record_fn(example, image_size=image_size), num_parallel_calls=AUTO)
 
     return dataset
 
 
-def get_training_dataset(filenames, batch_size, ordered=False,
-                         image_size=(512, 512)):
-    dataset = load_dataset(filenames, ordered=ordered, image_size=image_size)
-    dataset = dataset.map(data_augment, num_parallel_calls=AUTO)
+def get_training_dataset(filenames, batch_size, ordered=False, image_size=(224, 224)):
+    dataset = load_dataset(filenames, read_labeled_tfrecord_train, ordered=ordered, image_size=image_size)
     dataset = dataset.map(example_format, num_parallel_calls=AUTO)
     dataset = dataset.repeat()
     dataset = dataset.shuffle(1024)
@@ -227,9 +240,8 @@ def get_training_dataset(filenames, batch_size, ordered=False,
 
 
 # This function is to get our validation tensors
-def get_validation_dataset(filenames, batch_size, ordered=True,
-                           image_size=(512, 512)):
-    dataset = load_dataset(filenames, ordered=ordered, image_size=image_size)
+def get_validation_dataset(filenames, batch_size, ordered=True, image_size=(224, 224)):
+    dataset = load_dataset(filenames, read_labeled_tfrecord_val, ordered=ordered, image_size=image_size)
     dataset = dataset.map(example_format, num_parallel_calls=AUTO)
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(AUTO)
@@ -247,21 +259,9 @@ def main():
 
     print("Found training files: ", train_files)
 
-    n_folds = 5
-    cv = KFold(n_folds, shuffle=True, random_state=SEED)
+    cv = KFold(N_FOLDS, shuffle=True, random_state=SEED)
 
-    import pandas as pd
-    df = pd.read_csv("./train.csv")
-    df["label_group"] = LabelEncoder().fit_transform(df["label_group"].tolist())
-
-    weights = np.zeros(df["label_group"].nunique())
-    for i in df["label_group"].tolist():
-        weights[i] += 1
-
-    weights = 1.0 / np.log(weights+1)
-    class_weights = {k: v for k, v in enumerate(weights)}
-
-    for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(train_files, np.arange(n_folds))):
+    for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(train_files, np.arange(N_FOLDS))):
         if params["resume_fold"] and params["resume_fold"] != fold_idx:
             continue
 
@@ -291,8 +291,20 @@ def main():
 
         model_id = "{}_fold_{}".format(params["model_name"], fold_idx)
         train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val,
-              num_training_images, model_dir, model_id,class_weights)
+              num_training_images, model_dir, model_id)
 
 
 if __name__ == "__main__":
+    params = parse_args()
+
+    AUTO = tf.data.experimental.AUTOTUNE
+    SEED = 4111
+    N_CLASSES = 11014
+    IMAGE_SIZE = (params["image_size"], params["image_size"])
+    N_FOLDS = 5
+
+    saved_path = params["saved_path"]
+    model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["image_size"]))
+    os.makedirs(model_dir, exist_ok=True)
+
     main()

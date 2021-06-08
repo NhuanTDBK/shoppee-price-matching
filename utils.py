@@ -44,7 +44,7 @@ def get_disk_path():
 def train(params: dict, model_fn,
           optimizer: tf.optimizers.Optimizer,
           loss: tf.keras.losses.Loss, metrics, callbacks, ds_train, ds_val=None, num_training_images=None,
-          model_saved_dir=None, model_name=None,weights=None):
+          model_saved_dir=None, model_name=None):
     model, emb_model = model_fn()
     model.compile(optimizer, loss, metrics)
 
@@ -73,10 +73,6 @@ def train(params: dict, model_fn,
     if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]) and params["is_checkpoint"]:
         callbacks.append(CheckpointCallback(ckpt_manager, params["check_period"]))
 
-    # if not any([isinstance(cb, tf.keras.callbacks.ModelCheckpoint) for cb in callbacks]):
-    #     callbacks.append(
-    #         tf.keras.callbacks.ModelCheckpoint(ckpt_dir, verbose=1, save_best_only=True, save_weights_only=True))
-
     if not any([isinstance(cb, tf.keras.callbacks.EarlyStopping) for cb in callbacks]):
         callbacks.append(tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=params["patience"],
                                                           restore_best_weights=True))
@@ -95,17 +91,16 @@ def train(params: dict, model_fn,
               epochs=epochs,
               steps_per_epoch=steps_per_epoch,
               validation_data=ds_val,
-              callbacks=callbacks,class_weight=weights)
+              callbacks=callbacks)
 
-    path = os.path.join(model_saved_dir, model_name + ".h5")
+    path = os.path.join(model_saved_dir, model_name)
     print("Saved model to ", path)
     emb_model.save_weights(path,
-                           save_format="h5",
+                           save_format="tf",
                            overwrite=True)
 
     del model, emb_model
     gc.collect()
-    # return model, emb_model, optimizer, loss, metrics
 
 
 def train_tpu(params: dict, model_fn,
