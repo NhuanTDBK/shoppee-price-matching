@@ -140,7 +140,7 @@ def example_format(image, ids, atts, toks, label_group):
 
 
 def resize(img, h, w):
-    return tf.image.resize(img, (tf.int32(h), tf.cast(w, tf.int32)))
+    return tf.image.resize(img, (tf.cast(h,tf.int32), tf.cast(w, tf.int32)))
 
 
 def crop_center(img, image_size, crop_size):
