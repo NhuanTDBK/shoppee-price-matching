@@ -2,11 +2,10 @@ import argparse
 
 import transformers
 from sklearn.model_selection import KFold
-from sklearn.preprocessing import LabelEncoder
 
-from features.pool import LocalGlobalExtractor
-from features.pool import PoolingStrategy
+from features.pool import LocalGlobalExtractor, PoolingStrategy
 from modelling.metrics import MetricLearner
+
 from utils import *
 
 image_feature_description = {
@@ -154,15 +153,13 @@ def crop_center(img, image_size, crop_size):
     crop_top = int(round((h - crop_h) / 2.))
     crop_left = int(round((w - crop_w) / 2.))
 
-    image = tf.image.crop_to_bounding_box(
-        img, crop_top, crop_left, crop_h, crop_w)
-    return image
+    img = tf.image.crop_to_bounding_box(img, crop_top, crop_left, crop_h, crop_w)
+    return img
 
 
 # Data augmentation function
 def data_augment(image):
     image = tf.image.random_flip_left_right(image)
-    # image = tf.image.random_flip_up_down(image)
     image = tf.image.random_hue(image, 0.01)
     image = tf.image.random_saturation(image, 0.70, 1.30)
     image = tf.image.random_contrast(image, 0.80, 1.20)
