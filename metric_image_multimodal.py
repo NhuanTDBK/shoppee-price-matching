@@ -174,18 +174,24 @@ def normalize_image(image):
 
 
 # This function parse our images and also get the target variable
-def read_labeled_tfrecord_train(example, image_size=(224, 224)):
+def read_labeled_tfrecord_train(example, image_size=(224, 224),scale=256):
     row = tf.io.parse_single_example(example, image_feature_description)
     label_group = tf.cast(row['label_group'], tf.int32)
     ids = row["ids"]
     atts = row["atts"]
     toks = row["toks"]
 
+    original_shape = tf.io.extract_jpeg_shape(row["image"])
+    height, width = original_shape[0], original_shape[1]
+
     image = tf.image.decode_jpeg(row["image"], channels=3)
     image = tf.cast(image, tf.float32)
 
-    image = tf.image.random_crop(image, (*image_size, 3), name="random_crop")
-    image = data_augment(image)
+    image = tf.cond(tf.less_equal(width, height),
+                    lambda: resize(image, scale, tf.round(scale * height / width)),
+                    lambda: resize(image, tf.round(scale * width / height), scale))
+
+    image = tf.image.random_crop(image, (*image_size,3))
     image = normalize_image(image)
 
     return image, ids, atts, toks, label_group
