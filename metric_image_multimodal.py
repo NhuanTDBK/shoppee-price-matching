@@ -183,6 +183,8 @@ def read_labeled_tfrecord_train(example, image_size=(224, 224)):
     toks = row["toks"]
 
     image = tf.image.decode_jpeg(row["image"], channels=3)
+    image = tf.cast(image, tf.float32)
+
     image = tf.image.random_crop(image, image_size, name="random_crop")
     image = data_augment(image)
     image = normalize_image(image)
@@ -202,6 +204,8 @@ def read_labeled_tfrecord_val(example, crop_image_size=(224, 224), scale=256):
     height, width = original_shape[0], original_shape[1]
 
     image = tf.image.decode_jpeg(row["image"], channels=3)
+    image = tf.cast(image, tf.float32)
+
     image = tf.cond(tf.less_equal(width, height),
                     lambda: resize(image, scale, tf.round(scale * height / width)),
                     lambda: resize(image, tf.round(scale * width / height), scale))
