@@ -147,13 +147,14 @@ def crop_center(img, image_size, crop_size):
     crop_h, crop_w = crop_size[0], crop_size[1]
 
     if crop_h > h or crop_w > w:
-        return tf.image.resize(img, (crop_h, crop_w))
+        return tf.image.resize(img, crop_size)
 
-    crop_top = tf.cast(tf.round(tf.cast(h - crop_h, tf.float32) / 2.), tf.int32)
-    crop_left = tf.cast(tf.round(tf.cast(w - crop_w, tf.float32) / 2.), tf.int32)
+    crop_top = tf.cast(tf.round((h - crop_h) // 2), tf.int32)
+    crop_left = tf.cast(tf.round((w - crop_w) // 2), tf.int32)
 
-    img = tf.image.crop_to_bounding_box(img, crop_top, crop_left, crop_h, crop_w)
-    return img
+    image = tf.image.crop_to_bounding_box(
+        img, crop_top, crop_left, crop_h, crop_w)
+    return image
 
 
 # Data augmentation function
@@ -170,12 +171,14 @@ def data_augment(image):
 def normalize_image(image):
     image -= tf.constant([0.485 * 255, 0.456 * 255, 0.406 * 255])  # RGB
     image /= tf.constant([0.229 * 255, 0.224 * 255, 0.225 * 255])  # RGB
+
     return image
 
 
 # This function parse our images and also get the target variable
-def read_labeled_tfrecord_train(example, image_size=(224, 224),scale=256):
+def read_labeled_tfrecord_train(example, image_size=(224, 224)):
     row = tf.io.parse_single_example(example, image_feature_description)
+
     label_group = tf.cast(row['label_group'], tf.int32)
     ids = row["ids"]
     atts = row["atts"]
@@ -187,12 +190,19 @@ def read_labeled_tfrecord_train(example, image_size=(224, 224),scale=256):
     image = tf.image.decode_jpeg(row["image"], channels=3)
     image = tf.cast(image, tf.float32)
 
-    image = tf.cond(tf.less_equal(width, height),
-                    lambda: resize(image, scale, tf.round(scale * height / width)),
-                    lambda: resize(image, tf.round(scale * width / height), scale))
+    # image = tf.cond(tf.less_equal(width, height),
+    #                 lambda: resize(image, scale, tf.round(scale * height / width)),
+    #                 lambda: resize(image, tf.round(scale * width / height), scale))
 
     image = tf.image.random_crop(image, (*image_size,3))
+    scale = tf.round(tf.random.uniform(shape=[], minval=0.8, maxval=1.0))
+    scale = tf.cast(scale, tf.float32)
+
+    image = tf.image.central_crop(image,scale)
+
     image = normalize_image(image)
+
+    image = tf.reshape(image, [224, 224, 3])
 
     return image, ids, atts, toks, label_group
 
@@ -217,6 +227,8 @@ def read_labeled_tfrecord_val(example, image_size=(224, 224), scale=256):
 
     image = crop_center(image, original_shape, image_size)
     image = normalize_image(image)
+
+    image = tf.reshape(image, [224, 224, 3])
 
     return image, ids, atts, toks, label_group
 
