@@ -5,7 +5,6 @@ from sklearn.model_selection import KFold
 
 from features.pool import LocalGlobalExtractor, PoolingStrategy
 from modelling.metrics import MetricLearner
-
 from utils import *
 
 image_feature_description = {
@@ -140,7 +139,7 @@ def example_format(image, ids, atts, toks, label_group):
 
 
 def resize(img, h, w):
-    return tf.image.resize(img, (tf.cast(h,tf.int32), tf.cast(w, tf.int32)))
+    return tf.image.resize(img, (tf.cast(h, tf.int32), tf.cast(w, tf.int32)))
 
 
 def crop_center(img, image_size, crop_size):
@@ -150,8 +149,8 @@ def crop_center(img, image_size, crop_size):
     if crop_h > h or crop_w > w:
         return tf.image.resize(img, (crop_h, crop_w))
 
-    crop_top = int(round((h - crop_h) / 2.))
-    crop_left = int(round((w - crop_w) / 2.))
+    crop_top = tf.cast(tf.round(tf.cast(h - crop_h, tf.float32) / 2.), tf.int32)
+    crop_left = tf.cast(tf.round(tf.cast(w - crop_w, tf.float32) / 2.), tf.int32)
 
     img = tf.image.crop_to_bounding_box(img, crop_top, crop_left, crop_h, crop_w)
     return img
@@ -185,7 +184,7 @@ def read_labeled_tfrecord_train(example, image_size=(224, 224)):
     image = tf.image.decode_jpeg(row["image"], channels=3)
     image = tf.cast(image, tf.float32)
 
-    image = tf.image.random_crop(image, (*image_size,3), name="random_crop")
+    image = tf.image.random_crop(image, (*image_size, 3), name="random_crop")
     image = data_augment(image)
     image = normalize_image(image)
 
