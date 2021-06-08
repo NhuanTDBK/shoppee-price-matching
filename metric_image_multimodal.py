@@ -185,7 +185,7 @@ def read_labeled_tfrecord_train(example, image_size=(224, 224)):
     image = tf.image.decode_jpeg(row["image"], channels=3)
     image = tf.cast(image, tf.float32)
 
-    image = tf.image.random_crop(image, image_size, name="random_crop")
+    image = tf.image.random_crop(image, (*image_size,3), name="random_crop")
     image = data_augment(image)
     image = normalize_image(image)
 
