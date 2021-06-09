@@ -30,7 +30,6 @@ def parse_args():
     parser.add_argument("--verbose", type=int, default=0)
     parser.add_argument("--resume_fold", type=int, default=None)
     parser.add_argument("--image_size", type=int, default=512)
-    parser.add_argument("--valid_image_size", type=int, required=True)
     parser.add_argument("--freeze", type=bool, default=False)
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
     parser.add_argument("--check_period", type=int, default=5)
@@ -48,7 +47,6 @@ params = parse_args()
 SEED = 4111
 N_CLASSES = 11014
 IMAGE_SIZE = (params["image_size"], params["image_size"])
-VALID_IMAGE_SIZE = (params["valid_image_size"], params["valid_image_size"])
 
 saved_path = params["saved_path"]
 model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["image_size"]))
@@ -95,9 +93,9 @@ def main():
 
     print("Found files: ", train_files)
 
-    n_folds = 5
+    n_folds = len(train_files)
     cv = KFold(n_folds, shuffle=True, random_state=SEED)
-    for fold_idx, (train_files, valid_files) in enumerate(cv.split(train_files, np.arange(n_folds))):
+    for fold_idx, (_, _) in enumerate(cv.split(train_files, np.arange(n_folds))):
         if params["resume_fold"] and params["resume_fold"] != fold_idx:
             continue
 
@@ -105,7 +103,7 @@ def main():
         num_training_images = count_data_items(train_files[fold_idx])
         print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
 
-        ds_val = get_validation_dataset(valid_files[fold_idx], params["batch_size"], image_size=VALID_IMAGE_SIZE)
+        ds_val = get_validation_dataset(valid_files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE)
         num_valid_images = count_data_items(valid_files[fold_idx])
         print("Get fold %s, ds valid, %s images" % (fold_idx + 1, num_valid_images))
 
