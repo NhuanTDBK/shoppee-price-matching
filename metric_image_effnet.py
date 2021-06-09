@@ -1,7 +1,8 @@
 import argparse
 
-from sklearn.model_selection import KFold
 import efficientnet.tfkeras as efn
+from sklearn.model_selection import KFold
+
 from features.img import *
 from features.pool import LocalGlobalExtractor
 from modelling.metrics import MetricLearner
@@ -33,7 +34,7 @@ def parse_args():
     parser.add_argument("--freeze", type=bool, default=False)
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
     parser.add_argument("--check_period", type=int, default=5)
-    parser.add_argument("--lr_schedule", type=str, default=None)
+    parser.add_argument("--lr_schedule", type=str, default="cosine")
     parser.add_argument("--is_checkpoint", type=bool, default=True)
     parser.add_argument("--optim", type=str, default="adam")
 
@@ -83,7 +84,6 @@ def create_model():
     return model, emb_model
 
 
-
 def main():
     seed_everything(SEED)
 
@@ -110,7 +110,7 @@ def main():
 
         optimizers = tf.keras.optimizers.Adam(learning_rate=params["lr"])
         if params["optim"] == "sgd":
-            optimizers = tf.optimizers.SGD(learning_rate=params["lr"], momentum=0.9, decay=1e-5)        
+            optimizers = tf.optimizers.SGD(learning_rate=params["lr"], momentum=0.9, decay=1e-5)
 
         loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
         metrics = tf.keras.metrics.SparseCategoricalAccuracy()
@@ -118,9 +118,9 @@ def main():
         callbacks = []
         if not params["lr_schedule"]:
             if params["lr_schedule"] == "cosine":
-                callbacks.append(get_cosine_annealing(params,num_training_images))
+                callbacks.append(get_cosine_annealing(params, num_training_images))
             elif params["lr_schedule"] == "linear":
-                callbacks.append(get_linear_decay())
+                callbacks.append(get_linear_decay(params))
 
         model_id = "fold_" + str(fold_idx)
         train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val,
