@@ -36,6 +36,7 @@ def parse_args():
     parser.add_argument("--lr_schedule", type=str, default="cosine")
     parser.add_argument("--is_checkpoint", type=bool, default=True)
     parser.add_argument("--optim", type=str, default="adam")
+    parser.add_argument("--patience", type=int, default=5)
 
     args = parser.parse_args()
     params = vars(args)
