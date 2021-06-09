@@ -89,21 +89,14 @@ def create_text_model(ids, att, tok):
 
 
 def create_model():
-    ids = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32, name='ids')
-    att = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32, name='atts')
-    tok = tf.keras.layers.Input((params["max_len"],), dtype=tf.int32, name='toks')
-    text_emb = create_text_model(ids, att, tok)
-
     inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp_image')
     image_emb = create_image_model(inp)
-
-    concat_emb = tf.concat([text_emb, image_emb], axis=1)
 
     label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='label')
     labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
 
     margin_concat_layer = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])(
-        [concat_emb, labels_onehot])
+        [image_emb, labels_onehot])
 
     # image_layer = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])(
     #     [image_emb, labels_onehot])
@@ -111,10 +104,10 @@ def create_model():
     # text_layer = MetricLearner(N_CLASSES, metric=params["metric"], l2_wd=params["l2_wd"])(
     #     [text_emb, labels_onehot])
 
-    model = tf.keras.Model(inputs=[inp, ids, att, tok, label], outputs=[margin_concat_layer])
+    model = tf.keras.Model(inputs=[inp, label], outputs=[margin_concat_layer])
     model.summary()
 
-    emb_model = tf.keras.Model(inputs=[inp, ids, att, tok], outputs=[concat_emb])
+    emb_model = tf.keras.Model(inputs=[inp], outputs=[image_emb])
 
     return model, emb_model
 
@@ -135,7 +128,8 @@ def get_tokenizer():
 
 
 def example_format(image, ids, atts, toks, label_group):
-    return {'inp_image': image, 'label': label_group, "ids": ids, "atts": atts, "toks": toks}, label_group
+    # return {'inp_image': image, 'label': label_group, "ids": ids, "atts": atts, "toks": toks}, label_group
+    return {'inp_image': image, 'label': label_group}, label_group
 
 
 def resize(img, h, w):
@@ -176,7 +170,7 @@ def normalize_image(image):
 
 
 # This function parse our images and also get the target variable
-def read_labeled_tfrecord_train(example, image_size=(224, 224),scale=299):
+def read_labeled_tfrecord_train(example, image_size=(224, 224), scale=299):
     row = tf.io.parse_single_example(example, image_feature_description)
 
     label_group = tf.cast(row['label_group'], tf.int32)
@@ -194,11 +188,11 @@ def read_labeled_tfrecord_train(example, image_size=(224, 224),scale=299):
                     lambda: resize(image, scale, tf.round(scale * height / width)),
                     lambda: resize(image, tf.round(scale * width / height), scale))
 
+    image = tf.image.random_crop(image, (*image_size, 3))
     image = normalize_image(image)
 
-    image = tf.reshape(image, [224, 224, 3])
-
     return image, ids, atts, toks, label_group
+    # return image, label_group
 
 
 def read_labeled_tfrecord_val(example, image_size=(224, 224), scale=256):
@@ -215,16 +209,17 @@ def read_labeled_tfrecord_val(example, image_size=(224, 224), scale=256):
     image = tf.image.decode_jpeg(row["image"], channels=3)
     image = tf.cast(image, tf.float32)
 
-    image = tf.cond(tf.less_equal(width, height),
-                    lambda: resize(image, scale, tf.round(scale * height / width)),
-                    lambda: resize(image, tf.round(scale * width / height), scale))
-
-    image = crop_center(image, original_shape, image_size)
+    # image = tf.cond(tf.less_equal(width, height),
+    #                 lambda: resize(image, scale, tf.round(scale * height / width)),
+    #                 lambda: resize(image, tf.round(scale * width / height), scale))
+    #
+    # image = crop_center(image, original_shape, image_size)
+    image = tf.image.resize(image, image_size)
     image = normalize_image(image)
-
-    image = tf.reshape(image, [224, 224, 3])
+    # image = tf.reshape(image, [224, 224, 3])
 
     return image, ids, atts, toks, label_group
+    # return image
 
 
 # This function loads TF Records and parse them into tensors

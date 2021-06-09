@@ -31,6 +31,7 @@ def decode_image(image_data, IMAGE_SIZE=(512, 512)):
     image = tf.image.decode_jpeg(image_data, channels=3)
     image = tf.image.resize(image, IMAGE_SIZE)
     # image = tf.cast(image, tf.float32) / 255.0
+    image = normalize_image(image)
     return image
 
 
@@ -71,22 +72,23 @@ def decode_image_random_scale(image_data, IMAGE_SIZE=(512, 512), scale_range=(25
     image = tf.reshape(image, [224, 224, 3])
     return image
 
-
+@tf.function
 def crop_center(img, image_size, crop_size):
     h, w = image_size[0], image_size[1]
     crop_h, crop_w = crop_size[0], crop_size[1]
 
     if crop_h > h or crop_w > w:
-        return tf.image.resize(img, (crop_h, crop_w))
+        return tf.image.resize(img, crop_size)
 
-    crop_top = int(round((h - crop_h) / 2.))
-    crop_left = int(round((w - crop_w) / 2.))
+    crop_top = tf.cast(tf.round((h - crop_h) // 2), tf.int32)
+    crop_left = tf.cast(tf.round((w - crop_w) // 2), tf.int32)
 
     image = tf.image.crop_to_bounding_box(
         img, crop_top, crop_left, crop_h, crop_w)
     return image
 
 
+@tf.function
 def crop_top_left(img, image_size, crop_size):
     h, w = image_size[0], image_size[1]
     crop_h, crop_w = crop_size[0], crop_size[1]
@@ -97,6 +99,7 @@ def crop_top_left(img, image_size, crop_size):
     return tf.image.crop_to_bounding_box(img, 0, 0, crop_size[0], crop_size[1])
 
 
+@tf.function
 def crop_top_right(img, image_size, crop_size):
     h, w = image_size[0], image_size[1]
     crop_h, crop_w = crop_size[0], crop_size[1]
@@ -107,6 +110,7 @@ def crop_top_right(img, image_size, crop_size):
     return tf.image.crop_to_bounding_box(img, 0, w - crop_w, crop_size[0], crop_size[1])
 
 
+@tf.function
 def crop_bottom_left(img, image_size, crop_size):
     h, w = image_size[0], image_size[1]
     crop_h, crop_w = crop_size[0], crop_size[1]
@@ -117,6 +121,7 @@ def crop_bottom_left(img, image_size, crop_size):
     return tf.image.crop_to_bounding_box(img, h - crop_h, 0, crop_size[0], crop_size[1])
 
 
+@tf.function
 def crop_bottom_right(img, image_size, crop_size):
     h, w = image_size[0], image_size[1]
     crop_h, crop_w = crop_size[0], crop_size[1]
