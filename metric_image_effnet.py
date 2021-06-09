@@ -89,24 +89,25 @@ def main():
 
     print("Loading data")
     input_paths = params['input_path']
-    files = np.array([fpath for fpath in glob.glob(input_paths + "/*.tfrec")])
 
-    print("Found files: ", files)
+    train_files = np.array([fpath for fpath in glob.glob(input_paths + "/train*.tfrec")])
+    valid_files = np.array([fpath for fpath in glob.glob(input_paths + "/valid*.tfrec")])
+
+    print("Found files: ", train_files)
 
     n_folds = 5
     cv = KFold(n_folds, shuffle=True, random_state=SEED)
-    for fold_idx, (train_files, valid_files) in enumerate(cv.split(files, np.arange(n_folds))):
+    for fold_idx, (train_files, valid_files) in enumerate(cv.split(train_files, np.arange(n_folds))):
         if params["resume_fold"] and params["resume_fold"] != fold_idx:
             continue
 
-        ds_train = get_training_dataset(files[train_files], params["batch_size"], image_size=IMAGE_SIZE)
-        num_training_images = count_data_items(files[train_files])
+        ds_train = get_training_dataset(train_files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE)
+        num_training_images = count_data_items(train_files[fold_idx])
         print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
 
-        print(f'Dataset: {num_training_images} training images')
-
-        print("Get ds validation")
-        ds_val = get_validation_dataset(files[valid_files], params["batch_size"], image_size=VALID_IMAGE_SIZE)
+        ds_val = get_validation_dataset(valid_files[fold_idx], params["batch_size"], image_size=VALID_IMAGE_SIZE)
+        num_valid_images = count_data_items(valid_files[fold_idx])
+        print("Get fold %s, ds valid, %s images" % (fold_idx + 1, num_valid_images))
 
         optimizers = tf.keras.optimizers.Adam(learning_rate=params["lr"])
         if params["optim"] == "sgd":
