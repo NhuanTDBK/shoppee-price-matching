@@ -11,7 +11,6 @@ from utils import *
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--max_len", type=int, default=70)
     parser.add_argument("--model_name", type=str, default='effb7')
     parser.add_argument("--epochs", type=int, default=25)
     parser.add_argument("--batch_size", type=int, default=32)
@@ -108,22 +107,23 @@ def main():
         num_valid_images = count_data_items(valid_files[[fold_idx]])
         print("Get fold %s, ds valid, %s images" % (fold_idx + 1, num_valid_images))
 
-        optimizers = tf.keras.optimizers.Adam(learning_rate=params["lr"])
+        optimizer = tf.keras.optimizers.Adam(learning_rate=params["lr"])
         if params["optim"] == "sgd":
-            optimizers = tf.optimizers.SGD(learning_rate=params["lr"], momentum=0.9, decay=1e-5)
+            optimizer = tf.optimizers.SGD(learning_rate=params["lr"], momentum=0.9, decay=1e-5)
 
         loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
         metrics = tf.keras.metrics.SparseCategoricalAccuracy()
 
         callbacks = []
-        if not params["lr_schedule"]:
+        if params["lr_schedule"]:
             if params["lr_schedule"] == "cosine":
                 callbacks.append(get_cosine_annealing(params, num_training_images))
             elif params["lr_schedule"] == "linear":
                 callbacks.append(get_linear_decay(params))
 
+        print(callbacks)
         model_id = "fold_" + str(fold_idx)
-        train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val,
+        train(params, create_model, optimizer, loss, metrics, callbacks, ds_train, ds_val,
               num_training_images, model_dir, model_id)
 
 
