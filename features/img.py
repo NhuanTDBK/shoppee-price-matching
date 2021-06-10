@@ -30,19 +30,25 @@ def data_augment(posting_id, image, label_group, matches):
 def decode_image(image_data, IMAGE_SIZE=(512, 512)):
     image = tf.image.decode_jpeg(image_data, channels=3)
     image = tf.image.resize(image, IMAGE_SIZE)
-    # image = tf.cast(image, tf.float32) / 255.0
     image = normalize_image(image)
     return image
 
 
 def normalize_image(image):
-    # image -= tf.constant([0.485 * 255, 0.456 * 255, 0.406 * 255])  # RGB
-    # image /= tf.constant([0.229 * 255, 0.224 * 255, 0.225 * 255])  # RGB
     image = tf.cast(image, tf.float32) / 255.0
+
+    # # Imagenet scaling
+    # image -= tf.constant([0.485,0.456,0.406])
+    # image /= tf.constant([0.229,0.224,0.225])
+
+    # Shopee 224
+    image -= tf.constant([0.18064207, 0.17303748, 0.16691259])
+    image /= tf.constant([0.07423419, 0.0760114, 0.08046484])
+
     return image
 
 
-# def decode_image(image_data, IMAGE_SIZE=(512, 512)):
+# def decode_image_random_crop(image_data, IMAGE_SIZE=(512, 512)):
 #     image = tf.image.decode_jpeg(image_data, channels=3)
 #     image = tf.image.resize(image, (IMAGE_SIZE[0] + 8, IMAGE_SIZE[1] + 8))
 #     image = tf.image.random_crop(image, (224, 224, 3))
@@ -71,6 +77,7 @@ def decode_image_random_scale(image_data, IMAGE_SIZE=(512, 512), scale_range=(25
 
     image = tf.reshape(image, [224, 224, 3])
     return image
+
 
 @tf.function
 def crop_center(img, image_size, crop_size):
