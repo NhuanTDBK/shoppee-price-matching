@@ -73,9 +73,9 @@ def train(params: dict, model_fn,
     if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]) and params["is_checkpoint"]:
         callbacks.append(CheckpointCallback(ckpt_manager, params["check_period"]))
 
-    if not any([isinstance(cb, tf.keras.callbacks.EarlyStopping) for cb in callbacks]):
-        callbacks.append(tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=params["patience"],
-                                                          restore_best_weights=True))
+    # if not any([isinstance(cb, tf.keras.callbacks.EarlyStopping) for cb in callbacks]):
+    #     callbacks.append(tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=params["patience"],
+    #                                                       restore_best_weights=True))
 
     steps_per_epoch = num_training_images // params["batch_size"]
     epochs = params["epochs"]
