@@ -74,7 +74,7 @@ def create_model():
     x = resnet(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
 
-    x1 = tf.keras.layers.Lambda(lambda x: tf.math.l2_normalize(emb, axis=1))  # L2 normalize embeddings
+    x1 =tf.math.l2_normalize(emb, axis=1)  # L2 normalize embeddings
 
     model = tf.keras.Model(inputs=[inp, label], outputs=[x1])
     model.summary()
@@ -130,7 +130,7 @@ def main():
     print("Found training files: ", files)
 
     n_folds = len(files)
-    cv = KFold(n_folds, shuffle=True, random_state=SEED)
+    # cv = KFold(n_folds, shuffle=True, random_state=SEED)
 
     model = create_model()
 
