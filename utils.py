@@ -73,6 +73,9 @@ def train(params: dict, model_fn,
     if not any([isinstance(cb, CheckpointCallback) for cb in callbacks]) and params["is_checkpoint"]:
         callbacks.append(CheckpointCallback(ckpt_manager, params["check_period"]))
 
+    if not any([isinstance(cb, tf.keras.callbacks.ModelCheckpoint) for cb in callbacks]):
+        callbacks.append(tf.keras.callbacks.ModelCheckpoint(ckpt_dir+"_train.h5", verbose=1, save_best_only=True, save_weights_only=True))
+
     # if not any([isinstance(cb, tf.keras.callbacks.EarlyStopping) for cb in callbacks]):
     #     callbacks.append(tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=params["patience"],
     #                                                       restore_best_weights=True))
@@ -317,6 +320,8 @@ def get_linear_decay(params):
 #     lr_callback = LearningRateSchedulerPerBatch(lrfn, verbose=True)
 #
 #     return lr_callback
+
+
 
 
 if __name__ == '__main__':
