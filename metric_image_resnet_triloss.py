@@ -158,8 +158,8 @@ def main():
         ds_train = get_training_dataset(files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE)
         ds_val = get_validation_dataset(files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE)
 
-        # num_training_images = count_data_items(files[train_idx])
-        # print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
+        num_training_images = count_data_items(files[fold_idx])
+        print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
         #
         # num_valid_images = count_data_items(files[valid_idx])
         # print("Get fold %s, ds valid, %s images" % (fold_idx + 1, num_valid_images))
@@ -176,7 +176,7 @@ def main():
         X_val, y_val = ds_val.map(lambda d, l: d).cache(), ds_val.map(lambda d, l: l).cache()
 
         for epoch in range(params["epochs"]):
-            steps_per_epoch = int(np.ceil(len(ds_train) / params["batch_size"]))
+            steps_per_epoch = int(np.ceil(num_training_images / params["batch_size"]))
             pbar = tf.keras.utils.Progbar(steps_per_epoch)
 
             for step, (x_batch_train, y_batch_train) in enumerate(ds_train):
