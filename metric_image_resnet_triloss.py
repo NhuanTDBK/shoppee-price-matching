@@ -74,7 +74,7 @@ def create_model():
     x = resnet(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
 
-    x1 = tf.keras.layers.Lambda(lambda x: tf.math.l2_normalize(emb, axis=1))  # L2 normalize embeddings
+    x1 =tf.math.l2_normalize(emb, axis=1)  # L2 normalize embeddings
 
     model = tf.keras.Model(inputs=[inp, label], outputs=[x1])
     model.summary()
@@ -92,6 +92,33 @@ def get_lr_callback(total_size):
                                       warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
 
 
+def compute_precision(X: np.ndarray, y: list, top_k=6):
+    def precision(y_true: np.ndarray, y_pred: np.ndarray):
+        y_true_set = set(y_true)
+        y_pred_set = set(y_pred)
+        tp = len(y_true_set.intersection(y_pred_set))
+
+        return tp * 1. / len(y_pred)
+
+    y_true = []
+
+    uniq_classes = np.unique(y)
+    if not isinstance(y, np.ndarray):
+        y = np.array(y, dtype=np.uint)
+
+    for c in uniq_classes:
+        y_true.append(np.where(y == c)[0])
+
+    sim_matrix = np.dot(X, X.T)
+    y_pred_indices = np.argsort(-sim_matrix, axis=1)[:top_k]
+
+    mean_ = 0.0
+    for i in range(len(y_pred_indices)):
+        mean_ += precision(y_true=y_true[i], y_pred=y_pred_indices[i]) / len(y_pred_indices)
+
+    return mean_
+
+
 def main():
     seed_everything(SEED)
 
@@ -103,7 +130,7 @@ def main():
     print("Found training files: ", files)
 
     n_folds = len(files)
-    cv = KFold(n_folds, shuffle=True, random_state=SEED)
+    # cv = KFold(n_folds, shuffle=True, random_state=SEED)
 
     model = create_model()
 
@@ -123,19 +150,19 @@ def main():
         loss_value = loss(y_true=y, y_pred=y_pred)
         return loss_value
 
-    for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(files, np.arange(n_folds))):
-        # for fold_idx in range(len(train_files)):
+    # for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(files, np.arange(n_folds))):
+    for fold_idx in range(len(files)):
         if params["resume_fold"] and params["resume_fold"] != fold_idx:
             continue
 
-        ds_train = get_training_dataset(files[train_idx], params["batch_size"], image_size=IMAGE_SIZE)
-        ds_val = get_validation_dataset(files[valid_idx], params["batch_size"], image_size=IMAGE_SIZE)
+        ds_train = get_training_dataset(files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE)
+        ds_val = get_validation_dataset(files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE)
 
-        num_training_images = count_data_items(files[train_idx])
-        print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
-
-        num_valid_images = count_data_items(files[valid_idx])
-        print("Get fold %s, ds valid, %s images" % (fold_idx + 1, num_valid_images))
+        # num_training_images = count_data_items(files[train_idx])
+        # print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
+        #
+        # num_valid_images = count_data_items(files[valid_idx])
+        # print("Get fold %s, ds valid, %s images" % (fold_idx + 1, num_valid_images))
 
         optimizer = tf.optimizers.Adam(learning_rate=params["lr"])
 
@@ -161,6 +188,9 @@ def main():
                     ("val_loss", val_loss_value)
                 ])
 
+            X_emb = model.predict(X_val)
+            score = compute_precision(X_emb, y_val.as_numpy_iterator(), )
+            print("Epoch {}: Precision: {}".format(epoch, score))
 
 
 if __name__ == "__main__":
