@@ -105,7 +105,7 @@ def main():
         print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
 
         ds_val = get_validation_dataset(files[valid_idx], params["batch_size"], image_size=IMAGE_SIZE)
-        num_valid_images = count_data_items(valid_idx[fold_idx])
+        num_valid_images = count_data_items(valid_idx[valid_idx])
         print("Get fold %s, ds valid, %s images" % (fold_idx + 1, num_valid_images))
 
         optimizer = tf.keras.optimizers.Adam(learning_rate=params["lr"])
