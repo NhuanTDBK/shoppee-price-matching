@@ -101,25 +101,25 @@ def main():
 
     print("Loading data")
     input_paths = params['input_path']
-    train_files = np.array([fpath for fpath in glob.glob(input_paths + "/train*.tfrec")])
-    valid_files = np.array([fpath for fpath in glob.glob(input_paths + "/valid*.tfrec")])
+    files = np.array([fpath for fpath in glob.glob(input_paths + "/train*.tfrec")])
+    # valid_files = np.array([fpath for fpath in glob.glob(input_paths + "/valid*.tfrec")])
 
-    print("Found training files: ", train_files)
+    print("Found training files: ", files)
 
-    # n_folds = len(train_files)
-    # cv = KFold(n_folds, shuffle=True, random_state=SEED)
-    # for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(train_files, np.arange(n_folds))):
-    for fold_idx in range(len(train_files)):
+    n_folds = len(files)
+    cv = KFold(n_folds, shuffle=True, random_state=SEED)
+    for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(files, np.arange(n_folds))):
+    # for fold_idx in range(len(train_files)):
         if params["resume_fold"] and params["resume_fold"] != fold_idx:
             continue
 
-        ds_train = get_training_dataset(train_files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE)
-        ds_val = get_validation_dataset(valid_files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE)
+        ds_train = get_training_dataset(files[train_idx], params["batch_size"], image_size=IMAGE_SIZE)
+        ds_val = get_validation_dataset(files[valid_idx], params["batch_size"], image_size=IMAGE_SIZE)
 
-        num_training_images = count_data_items(train_files[[fold_idx]])
+        num_training_images = count_data_items(files[[train_idx]])
         print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
 
-        num_valid_images = count_data_items(valid_files[[fold_idx]])
+        num_valid_images = count_data_items(files[[valid_idx]])
         print("Get fold %s, ds valid, %s images" % (fold_idx + 1, num_valid_images))
 
         optimizers = tf.optimizers.Adam(learning_rate=params["lr"])
