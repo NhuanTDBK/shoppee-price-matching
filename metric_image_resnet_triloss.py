@@ -158,7 +158,7 @@ def main():
         ds_train = get_training_dataset(files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE)
         ds_val = get_validation_dataset(files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE)
 
-        num_training_images = count_data_items(files[fold_idx])
+        num_training_images = count_data_items(files[[fold_idx]])
         print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
         #
         # num_valid_images = count_data_items(files[valid_idx])
@@ -173,7 +173,7 @@ def main():
         #     tf.keras.callbacks.TensorBoard(log_dir="logs-{}".format(fold_idx), histogram_freq=2)
         # ]
 
-        X_val, y_val = ds_val.map(lambda d, l: d).cache(), ds_val.map(lambda d, l: l).cache()
+        X_val, y_val = ds_val.map(lambda image, _: image).cache(), ds_val.map(lambda _, label: label).cache()
 
         for epoch in range(params["epochs"]):
             steps_per_epoch = int(np.ceil(num_training_images / params["batch_size"]))
