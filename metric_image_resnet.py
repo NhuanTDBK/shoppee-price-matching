@@ -108,6 +108,7 @@ def main():
 
     n_folds = len(files)
     cv = KFold(n_folds, shuffle=True, random_state=SEED)
+    
     for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(files, np.arange(n_folds))):
     # for fold_idx in range(len(train_files)):
         if params["resume_fold"] and params["resume_fold"] != fold_idx:
