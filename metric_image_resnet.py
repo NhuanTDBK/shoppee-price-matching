@@ -108,7 +108,8 @@ def main():
 
     n_folds = len(train_files)
     cv = KFold(n_folds, shuffle=True, random_state=SEED)
-    for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(train_files, np.arange(n_folds))):
+    # for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(train_files, np.arange(n_folds))):
+    for fold_idx in range(len(train_files)):
         if params["resume_fold"] and params["resume_fold"] != fold_idx:
             continue
 
@@ -132,8 +133,7 @@ def main():
         ]
 
         model_id = "fold_" + str(fold_idx)
-        train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val,
-              num_training_images, model_dir, model_id)
+        train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val, num_training_images, model_dir, model_id)
 
 
 if __name__ == "__main__":

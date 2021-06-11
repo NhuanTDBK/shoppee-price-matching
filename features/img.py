@@ -22,7 +22,6 @@ def data_augment(posting_id, image, label_group, matches):
     image = tf.image.random_saturation(image, 0.70, 1.30)
     image = tf.image.random_contrast(image, 0.80, 1.20)
     image = tf.image.random_brightness(image, 0.10)
-    # image = tf.keras.layers.experimental.preprocessing.RandomRotation(0.2)(image),
     return posting_id, image, label_group, matches
 
 
