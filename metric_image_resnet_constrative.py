@@ -1,7 +1,6 @@
 import argparse
 
 import tensorflow_addons as tfx
-from sklearn.model_selection import KFold
 
 from features.img import *
 from features.pool import LocalGlobalExtractor
@@ -14,7 +13,7 @@ def parse_args():
     parser.add_argument("--model_name", type=str, default='resnet50')
     parser.add_argument("--epochs", type=int, default=25)
     parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--margin", type=float, default=0.3)
+    parser.add_argument("--margin", type=float, default=1.0)
     parser.add_argument("--s", type=float, default=30)
     parser.add_argument("--pool", type=str, default="gem")
     parser.add_argument("--dropout", type=float, default=0.5)
@@ -62,21 +61,15 @@ image_extractor_mapper = {
 
 def create_model():
     inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
-
-    label = tf.keras.layers.Input(shape=(), dtype=tf.int32, name='inp2')
-    labels_onehot = tf.one_hot(label, depth=N_CLASSES, name="onehot")
     resnet = image_extractor_mapper[params["model_name"]](include_top=False, weights="imagenet")
-
-    # print(resnet.output_shape)
     for layer in resnet.layers:
         layer.trainable = True
 
     x = resnet(inp)
     emb = LocalGlobalExtractor(params["pool"], params["fc_dim"], params["dropout"])(x)
+    emb_norm = tf.math.l2_normalize(emb, axis=1)  # L2 normalize embeddings
+    model = tf.keras.Model(inputs=inp, outputs=emb_norm)
 
-    x1 =tf.math.l2_normalize(emb, axis=1)  # L2 normalize embeddings
-
-    model = tf.keras.Model(inputs=[inp, label], outputs=[x1])
     model.summary()
 
     return model
@@ -155,11 +148,13 @@ def main():
         if params["resume_fold"] and params["resume_fold"] != fold_idx:
             continue
 
-        ds_train = get_training_dataset(files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE)
-        ds_val = get_validation_dataset(files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE)
+        ds_train = get_training_dataset(files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE).map(
+            lambda image, label_group: (image["inp1"], label_group))
+        ds_val = get_validation_dataset(files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE).map(
+            lambda image, label_group: (image["inp1"], label_group))
 
-        # num_training_images = count_data_items(files[train_idx])
-        # print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
+        num_training_images = count_data_items(files[[fold_idx]])
+        print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
         #
         # num_valid_images = count_data_items(files[valid_idx])
         # print("Get fold %s, ds valid, %s images" % (fold_idx + 1, num_valid_images))
@@ -173,15 +168,18 @@ def main():
         #     tf.keras.callbacks.TensorBoard(log_dir="logs-{}".format(fold_idx), histogram_freq=2)
         # ]
 
-        X_val, y_val = ds_val.map(lambda d, l: d).cache(), ds_val.map(lambda d, l: l).cache()
+        X_val, y_val = ds_val.map(lambda image, _: image).cache(), ds_val.map(lambda _, label: label).cache()
 
         for epoch in range(params["epochs"]):
-            steps_per_epoch = int(np.ceil(len(ds_train) / params["batch_size"]))
+            steps_per_epoch = int(np.ceil(num_training_images / params["batch_size"]))
             pbar = tf.keras.utils.Progbar(steps_per_epoch)
 
             for step, (x_batch_train, y_batch_train) in enumerate(ds_train):
                 train_loss_value = train_step(x_batch_train, y_batch_train)
-                val_loss_value = val_step(X_val, y_val)
+
+                val_loss_value = 0
+                for (x_batch_val, y_batch_val) in ds_val:
+                    val_loss_value += val_step(x_batch_val, y_batch_val)
 
                 pbar.update(step, values=[
                     ("train_loss", train_loss_value),
