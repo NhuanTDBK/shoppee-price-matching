@@ -179,12 +179,13 @@ def load_dataset_multi_scale(filenames, ordered=False, image_size=(512, 512)):
     return dataset
 
 
-def get_training_dataset(filenames, batch_size, ordered=False, image_size=(512, 512)):
+def get_training_dataset(filenames, batch_size, ordered=False, image_size=(512, 512),shuffle=True):
     dataset = load_dataset(filenames, ordered=ordered, image_size=image_size)
     dataset = dataset.map(data_augment, num_parallel_calls=AUTO)
     dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
     dataset = dataset.repeat()
-    dataset = dataset.shuffle(1024)
+    if shuffle:
+        dataset = dataset.shuffle(1024)
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(AUTO)
     dataset = dataset.map(lambda posting_id, image, label_group, matches: (image, label_group))

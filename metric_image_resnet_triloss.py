@@ -117,13 +117,10 @@ def main():
 
     print("Loading data")
     input_paths = params['input_path']
-    files = np.array([fpath for fpath in glob.glob(input_paths + "/train*.tfrec")])
-    # valid_files = np.array([fpath for fpath in glob.glob(input_paths + "/valid*.tfrec")])
+    train_files = np.array([fpath for fpath in glob.glob(input_paths + "/train*.tfrec")])
+    valid_files = np.array([fpath for fpath in glob.glob(input_paths + "/valid*.tfrec")])
 
-    print("Found training files: ", files)
-
-    n_folds = len(files)
-    # cv = KFold(n_folds, shuffle=True, random_state=SEED)
+    print("Found training files: ", train_files)
 
     model = create_model()
 
@@ -143,52 +140,38 @@ def main():
         loss_value = loss(y_true=y, y_pred=y_pred)
         return loss_value
 
-    # for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(files, np.arange(n_folds))):
-    for fold_idx in range(len(files)):
-        if params["resume_fold"] and params["resume_fold"] != fold_idx:
-            continue
+    optimizer = tf.optimizers.Adam(learning_rate=params["lr"])
+    loss = tfx.losses.TripletSemiHardLoss(margin=params["margin"])
 
-        ds_train = get_training_dataset(files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE).map(
-            lambda image, label_group: (image["inp1"], label_group))
-        ds_val = get_validation_dataset(files[fold_idx], params["batch_size"], image_size=IMAGE_SIZE).map(
-            lambda image, label_group: (image["inp1"], label_group))
+    # callbacks = [
+    #     get_lr_callback(num_training_images),
+    #     tf.keras.callbacks.TensorBoard(log_dir="logs-{}".format(fold_idx), histogram_freq=2)
+    # ]
 
-        num_training_images = count_data_items(files[[fold_idx]])
-        print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
-        #
-        # num_valid_images = count_data_items(files[valid_idx])
-        # print("Get fold %s, ds valid, %s images" % (fold_idx + 1, num_valid_images))
+    ds_val = get_validation_dataset(valid_files, params["batch_size"], image_size=IMAGE_SIZE).map(
+        lambda image, label_group: (image["inp1"], label_group))
 
-        optimizer = tf.optimizers.Adam(learning_rate=params["lr"])
+    X_val, y_val = ds_val.map(lambda image, _: image).cache(), ds_val.map(lambda _, label: label).cache()
 
-        loss = tfx.losses.TripletSemiHardLoss(margin=params["margin"])
+    for epoch in range(params["epochs"]):
+        steps_per_epoch = int(np.ceil(len(train_files) / params["batch_size"]))
+        pbar = tf.keras.utils.Progbar(steps_per_epoch)
 
-        # callbacks = [
-        #     get_lr_callback(num_training_images),
-        #     tf.keras.callbacks.TensorBoard(log_dir="logs-{}".format(fold_idx), histogram_freq=2)
-        # ]
+        for i in range(len(train_files)):
+            num_files = count_data_items(train_files[[i]])
+            ds_train = get_training_dataset(train_files[i],num_files,image_size=IMAGE_SIZE).map(lambda image, label_group: (image["inp1"], label_group))
 
-        X_val, y_val = ds_val.map(lambda image, _: image).cache(), ds_val.map(lambda _, label: label).cache()
-
-        for epoch in range(params["epochs"]):
-            steps_per_epoch = int(np.ceil(num_training_images / params["batch_size"]))
-            pbar = tf.keras.utils.Progbar(steps_per_epoch)
-
-            for step, (x_batch_train, y_batch_train) in enumerate(ds_train):
+            for _, (x_batch_train, y_batch_train) in enumerate(ds_train):
                 train_loss_value = train_step(x_batch_train, y_batch_train)
-
-                val_loss_value = 0
-                for (x_batch_val, y_batch_val) in ds_val:
-                    val_loss_value += val_step(x_batch_val, y_batch_val)
-
-                pbar.update(step, values=[
+                pbar.update(i, values=[
                     ("train_loss", train_loss_value),
-                    ("val_loss", val_loss_value)
                 ])
 
-            X_emb = model.predict(X_val)
-            score = compute_precision(X_emb, y_val.as_numpy_iterator(), )
-            print("Epoch {}: Precision: {}".format(epoch, score))
+        X_emb = model.predict(X_val)
+        score = compute_precision(X_emb, y_val.as_numpy_iterator(), )
+        print("Epoch {}: Precision: {}".format(epoch, score))
+
+        random.shuffle(train_files)
 
 
 if __name__ == "__main__":
