@@ -115,12 +115,16 @@ def compute_precision(X: np.ndarray, y: list, top_k=6):
     for c in y:
         y_true.append(np.where(y == c)[0])
 
-    sim_matrix = np.dot(X, X.T)
-    y_pred_indices = np.argsort(-sim_matrix, axis=1)
+    # sim_matrix = np.dot(X, X.T)
+    # y_pred_indices = np.argsort(-sim_matrix, axis=1)[:,:top_k]
+    from sklearn.neighbors import NearestNeighbors
+    knn = NearestNeighbors(50,)
 
     mean_ = 0.0
-    for i in range(len(y_pred_indices)):
-        mean_ += precision(y_true=y_true[i], y_pred=y_pred_indices[i][:top_k]) / len(y_pred_indices)
+
+    dists, indices = knn.kneighbors(X)
+    for i in range(len(indices)):
+        mean_ += precision(y_true=y_true[i], y_pred=indices[i]) / len(y)
 
     return mean_
 
@@ -282,7 +286,7 @@ def main():
 
         X_emb = model.predict(X_val)
         score = compute_precision(X_emb, y_val)
-        print("Epoch : {}, Precision: {}".format(epoch, score))
+        print("\nEpoch : {}, Precision: {}".format(epoch, score))
 
         random.shuffle(train_files)
 
