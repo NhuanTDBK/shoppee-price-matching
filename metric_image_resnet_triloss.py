@@ -118,7 +118,7 @@ def compute_precision(X: np.ndarray, y: list, top_k=6):
     # sim_matrix = np.dot(X, X.T)
     # y_pred_indices = np.argsort(-sim_matrix, axis=1)[:,:top_k]
     from sklearn.neighbors import NearestNeighbors
-    knn = NearestNeighbors(50,)
+    knn = NearestNeighbors(50,).fit(X)
 
     mean_ = 0.0
 
