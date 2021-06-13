@@ -16,6 +16,7 @@ image_feature_description = {
     'toks': tf.io.FixedLenFeature([70], tf.int64)
 }
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--max_len", type=int, default=70)
@@ -125,19 +126,19 @@ def resize(img, h, w):
     return tf.image.resize(img, (tf.cast(h, tf.int32), tf.cast(w, tf.int32)))
 
 
-def crop_center(img, image_size, crop_size):
-    h, w = image_size[0], image_size[1]
-    crop_h, crop_w = crop_size[0], crop_size[1]
-
-    if crop_h > h or crop_w > w:
-        return tf.image.resize(img, crop_size)
-
-    crop_top = tf.cast(tf.round((h - crop_h) // 2), tf.int32)
-    crop_left = tf.cast(tf.round((w - crop_w) // 2), tf.int32)
-
-    image = tf.image.crop_to_bounding_box(
-        img, crop_top, crop_left, crop_h, crop_w)
-    return image
+# def crop_center(img, image_size, crop_size):
+#     h, w = image_size[0], image_size[1]
+#     crop_h, crop_w = crop_size[0], crop_size[1]
+#
+#     if crop_h > h or crop_w > w:
+#         return tf.image.resize(img, crop_size)
+#
+#     crop_top = tf.cast(tf.round((h - crop_h) // 2), tf.int32)
+#     crop_left = tf.cast(tf.round((w - crop_w) // 2), tf.int32)
+#
+#     image = tf.image.crop_to_bounding_box(
+#         img, crop_top, crop_left, crop_h, crop_w)
+#     return image
 
 
 # Data augmentation function
@@ -159,32 +160,41 @@ def normalize_image(image):
 
 
 # This function parse our images and also get the target variable
-def read_labeled_tfrecord(example):
+def read_labeled_tfrecord(example, image_size=(224, 224)):
     row = tf.io.parse_single_example(example, image_feature_description)
     label_group = tf.cast(row['label_group'], tf.int32)
 
     image = tf.image.decode_jpeg(row["image"], channels=3)
     image = tf.cast(image, tf.float32)
 
+    # image = tf.image.resize(image,(image_size[0],image_size[0]))
+    # image = tf.image.random_crop(image,(*image_size,3))
     return image, label_group
-    # return image, label_group
+
+
+def random_crop(image, image_size=(224, 224)):
+    image = tf.image.resize(image, (image_size[0] + 8, image_size[1] + 8))
+    image = tf.image.random_crop(image, (*image_size, 3))
+
+    return image
 
 
 # This function loads TF Records and parse them into tensors
-def load_dataset(filenames, decode_tf_record_fn, ordered=False, image_size=(224, 224)):
+def load_dataset(filenames, decode_tf_record_fn, ordered=False):
     ignore_order = tf.data.Options()
     if not ordered:
         ignore_order.experimental_deterministic = False
 
     dataset = tf.data.TFRecordDataset(filenames, num_parallel_reads=AUTO)
     dataset = dataset.with_options(ignore_order)
-    dataset = dataset.map(lambda example: decode_tf_record_fn(example, image_size=image_size), num_parallel_calls=AUTO)
+    dataset = dataset.map(lambda example: decode_tf_record_fn(example), num_parallel_calls=AUTO)
 
     return dataset
 
 
 def get_training_dataset(filenames, batch_size, ordered=False, image_size=(224, 224)):
-    dataset = load_dataset(filenames, read_labeled_tfrecord, ordered=ordered, image_size=image_size)
+    dataset = load_dataset(filenames, read_labeled_tfrecord, ordered=ordered)
+    dataset = dataset.map(lambda image, label: (random_crop(image,image_size), label))
     dataset = dataset.map(lambda image, label: (data_augment(image), label))
     dataset = dataset.map(lambda image, label: (normalize_image(image), label))
     dataset = dataset.batch(batch_size)
@@ -195,13 +205,13 @@ def get_training_dataset(filenames, batch_size, ordered=False, image_size=(224, 
 
 # This function is to get our validation tensors
 def get_validation_dataset(filenames, batch_size, ordered=True, image_size=(224, 224)):
-    dataset = load_dataset(filenames, read_labeled_tfrecord, ordered=ordered, image_size=image_size)
+    dataset = load_dataset(filenames, read_labeled_tfrecord, ordered=ordered, )
+    dataset = dataset.map(lambda image, label: (tf.image.resize(image,image_size,), label))
     dataset = dataset.map(lambda image, label: (normalize_image(image), label))
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(AUTO)
 
     return dataset
-
 
 
 def main():
@@ -263,7 +273,6 @@ def main():
         print("Epoch {}: Precision: {}".format(epoch, score))
 
         random.shuffle(train_files)
-
 
 
 if __name__ == "__main__":

@@ -37,12 +37,12 @@ def normalize_image(image):
     image = tf.cast(image, tf.float32) / 255.0
 
     # # Imagenet scaling
-    # image -= tf.constant([0.485,0.456,0.406])
-    # image /= tf.constant([0.229,0.224,0.225])
+    image -= tf.constant([0.485,0.456,0.406])
+    image /= tf.constant([0.229,0.224,0.225])
 
     # Shopee 224
-    image -= tf.constant([0.18064207, 0.17303748, 0.16691259])
-    image /= tf.constant([0.07423419, 0.0760114, 0.08046484])
+    # image -= tf.constant([0.18064207, 0.17303748, 0.16691259])
+    # image /= tf.constant([0.07423419, 0.0760114, 0.08046484])
 
     return image
 
@@ -179,11 +179,12 @@ def load_dataset_multi_scale(filenames, ordered=False, image_size=(512, 512)):
     return dataset
 
 
-def get_training_dataset(filenames, batch_size, ordered=False, image_size=(512, 512),shuffle=True):
+def get_training_dataset(filenames, batch_size, ordered=False, image_size=(512, 512),shuffle=True,one_shot=False):
     dataset = load_dataset(filenames, ordered=ordered, image_size=image_size)
     dataset = dataset.map(data_augment, num_parallel_calls=AUTO)
     dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
-    dataset = dataset.repeat()
+    if not one_shot:
+        dataset = dataset.repeat()
     if shuffle:
         dataset = dataset.shuffle(1024)
     dataset = dataset.batch(batch_size)
