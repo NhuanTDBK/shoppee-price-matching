@@ -261,7 +261,7 @@ def main():
     ds_val = get_validation_dataset(valid_files, params["batch_size"], image_size=IMAGE_SIZE)
 
     X_val, y_val = ds_val.map(lambda image, _: image).cache(), list(
-        ds_val.map(lambda _, label: label).as_numpy_iterator()),
+        ds_val.map(lambda _, label: label).unbatch().as_numpy_iterator()),
 
     X_emb = model.predict(X_val)
     score = compute_precision(X_emb, y_val)
