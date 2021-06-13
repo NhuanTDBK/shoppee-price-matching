@@ -109,19 +109,18 @@ def compute_precision(X: np.ndarray, y: list, top_k=6):
 
     y_true = []
 
-    uniq_classes = np.unique(y)
     if not isinstance(y, np.ndarray):
         y = np.array(y, dtype=np.uint)
 
-    for c in uniq_classes:
+    for c in y:
         y_true.append(np.where(y == c)[0])
 
     sim_matrix = np.dot(X, X.T)
-    y_pred_indices = np.argsort(-sim_matrix, axis=1)[:top_k]
+    y_pred_indices = np.argsort(-sim_matrix, axis=1)
 
     mean_ = 0.0
     for i in range(len(y_pred_indices)):
-        mean_ += precision(y_true=y_true[i], y_pred=y_pred_indices[i]) / len(y_pred_indices)
+        mean_ += precision(y_true=y_true[i], y_pred=y_pred_indices[i][:top_k]) / len(y_pred_indices)
 
     return mean_
 
@@ -287,7 +286,7 @@ def main():
 
         random.shuffle(train_files)
 
-        model.save_weights(os.path.join(model_dir, "model-{}.h5".format(epoch)), save_format="h5", )
+        model.save_weights(os.path.join(model_dir, "model-{}.h5".format(epoch)), save_format="h5",)
 
 
 if __name__ == "__main__":
