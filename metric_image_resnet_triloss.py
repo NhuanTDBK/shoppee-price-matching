@@ -2,10 +2,19 @@ import argparse
 
 import tensorflow_addons as tfx
 
-from features.img import *
 from features.pool import LocalGlobalExtractor
 from utils import *
 
+AUTO = tf.data.experimental.AUTOTUNE
+image_feature_description = {
+    'posting_id': tf.io.FixedLenFeature([], tf.string),
+    'image': tf.io.FixedLenFeature([], tf.string),
+    'label_group': tf.io.FixedLenFeature([], tf.int64),
+    'matches': tf.io.FixedLenFeature([], tf.string),
+    'ids': tf.io.FixedLenFeature([70], tf.int64),
+    'atts': tf.io.FixedLenFeature([70], tf.int64),
+    'toks': tf.io.FixedLenFeature([70], tf.int64)
+}
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -112,6 +121,89 @@ def compute_precision(X: np.ndarray, y: list, top_k=6):
     return mean_
 
 
+def resize(img, h, w):
+    return tf.image.resize(img, (tf.cast(h, tf.int32), tf.cast(w, tf.int32)))
+
+
+def crop_center(img, image_size, crop_size):
+    h, w = image_size[0], image_size[1]
+    crop_h, crop_w = crop_size[0], crop_size[1]
+
+    if crop_h > h or crop_w > w:
+        return tf.image.resize(img, crop_size)
+
+    crop_top = tf.cast(tf.round((h - crop_h) // 2), tf.int32)
+    crop_left = tf.cast(tf.round((w - crop_w) // 2), tf.int32)
+
+    image = tf.image.crop_to_bounding_box(
+        img, crop_top, crop_left, crop_h, crop_w)
+    return image
+
+
+# Data augmentation function
+def data_augment(image):
+    image = tf.image.random_flip_left_right(image)
+    image = tf.image.random_hue(image, 0.01)
+    image = tf.image.random_saturation(image, 0.70, 1.30)
+    image = tf.image.random_contrast(image, 0.80, 1.20)
+    image = tf.image.random_brightness(image, 0.10)
+
+    return image
+
+
+def normalize_image(image):
+    image -= tf.constant([0.485 * 255, 0.456 * 255, 0.406 * 255])  # RGB
+    image /= tf.constant([0.229 * 255, 0.224 * 255, 0.225 * 255])  # RGB
+
+    return image
+
+
+# This function parse our images and also get the target variable
+def read_labeled_tfrecord(example):
+    row = tf.io.parse_single_example(example, image_feature_description)
+    label_group = tf.cast(row['label_group'], tf.int32)
+
+    image = tf.image.decode_jpeg(row["image"], channels=3)
+    image = tf.cast(image, tf.float32)
+
+    return image, label_group
+    # return image, label_group
+
+
+# This function loads TF Records and parse them into tensors
+def load_dataset(filenames, decode_tf_record_fn, ordered=False, image_size=(224, 224)):
+    ignore_order = tf.data.Options()
+    if not ordered:
+        ignore_order.experimental_deterministic = False
+
+    dataset = tf.data.TFRecordDataset(filenames, num_parallel_reads=AUTO)
+    dataset = dataset.with_options(ignore_order)
+    dataset = dataset.map(lambda example: decode_tf_record_fn(example, image_size=image_size), num_parallel_calls=AUTO)
+
+    return dataset
+
+
+def get_training_dataset(filenames, batch_size, ordered=False, image_size=(224, 224)):
+    dataset = load_dataset(filenames, read_labeled_tfrecord, ordered=ordered, image_size=image_size)
+    dataset = dataset.map(lambda image, label: (data_augment(image), label))
+    dataset = dataset.map(lambda image, label: (normalize_image(image), label))
+    dataset = dataset.batch(batch_size)
+    dataset = dataset.prefetch(AUTO)
+
+    return dataset
+
+
+# This function is to get our validation tensors
+def get_validation_dataset(filenames, batch_size, ordered=True, image_size=(224, 224)):
+    dataset = load_dataset(filenames, read_labeled_tfrecord, ordered=ordered, image_size=image_size)
+    dataset = dataset.map(lambda image, label: (normalize_image(image), label))
+    dataset = dataset.batch(batch_size)
+    dataset = dataset.prefetch(AUTO)
+
+    return dataset
+
+
+
 def main():
     seed_everything(SEED)
 
@@ -148,8 +240,7 @@ def main():
     #     tf.keras.callbacks.TensorBoard(log_dir="logs-{}".format(fold_idx), histogram_freq=2)
     # ]
 
-    ds_val = get_validation_dataset(valid_files, params["batch_size"], image_size=IMAGE_SIZE).map(
-        lambda image, label_group: (image["inp1"], label_group))
+    ds_val = get_validation_dataset(valid_files, params["batch_size"], image_size=IMAGE_SIZE)
 
     X_val, y_val = ds_val.map(lambda image, _: image).cache(), ds_val.map(lambda _, label: label).cache()
 
@@ -159,23 +250,20 @@ def main():
 
         for i in range(len(train_files)):
             num_files = count_data_items(train_files[[i]])
-            ds_train = get_training_dataset(train_files[i], num_files, image_size=IMAGE_SIZE, shuffle=False).map(
-                lambda image, label_group: (image["inp1"], label_group))
+            ds_train = get_training_dataset(train_files[i], num_files, image_size=IMAGE_SIZE)
 
-            # for _, (x_batch_train, y_batch_train) in enumerate(ds_train):
-            x_batch_train = ds_train.map(lambda image, label: image)
-            y_batch_train = ds_train.map(lambda image, label: label)
-
-            train_loss_value = train_step(x_batch_train, y_batch_train)
-            pbar.update(i, values=[
-                ("train_loss", train_loss_value),
-            ])
+            for _, (x_batch_train, y_batch_train) in enumerate(ds_train):
+                train_loss_value = train_step(x_batch_train, y_batch_train)
+                pbar.update(i, values=[
+                    ("train_loss", train_loss_value),
+                ])
 
         X_emb = model.predict(X_val)
         score = compute_precision(X_emb, y_val.as_numpy_iterator(), )
         print("Epoch {}: Precision: {}".format(epoch, score))
 
         random.shuffle(train_files)
+
 
 
 if __name__ == "__main__":
