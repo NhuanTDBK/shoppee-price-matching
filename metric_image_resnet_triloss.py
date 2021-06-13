@@ -16,9 +16,10 @@ image_feature_description = {
     'toks': tf.io.FixedLenFeature([70], tf.int64)
 }
 
-#Imagenet
+# Imagenet
 MEAN_RGB = [0.485, 0.456, 0.406]
 STDDEV_RGB = [0.229, 0.224, 0.225]
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -156,7 +157,7 @@ def data_augment(image):
 
 
 def normalize_image(image):
-    image = tf.cast(image,tf.float32) / 255.0
+    image = tf.cast(image, tf.float32) / 255.0
 
     offset = tf.constant(MEAN_RGB, shape=[1, 1, 3])
     image -= offset
@@ -201,7 +202,7 @@ def load_dataset(filenames, decode_tf_record_fn, ordered=False):
 
 def get_training_dataset(filenames, batch_size, ordered=False, image_size=(224, 224)):
     dataset = load_dataset(filenames, read_labeled_tfrecord, ordered=ordered)
-    dataset = dataset.map(lambda image, label: (random_crop(image,image_size), label))
+    dataset = dataset.map(lambda image, label: (random_crop(image, image_size), label))
     dataset = dataset.map(lambda image, label: (data_augment(image), label))
     dataset = dataset.map(lambda image, label: (normalize_image(image), label))
     dataset = dataset.batch(batch_size)
@@ -213,7 +214,7 @@ def get_training_dataset(filenames, batch_size, ordered=False, image_size=(224, 
 # This function is to get our validation tensors
 def get_validation_dataset(filenames, batch_size, ordered=True, image_size=(224, 224)):
     dataset = load_dataset(filenames, read_labeled_tfrecord, ordered=ordered, )
-    dataset = dataset.map(lambda image, label: (tf.image.resize(image,image_size,), label))
+    dataset = dataset.map(lambda image, label: (tf.image.resize(image, image_size, ), label))
     dataset = dataset.map(lambda image, label: (normalize_image(image), label))
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(AUTO)
@@ -259,7 +260,12 @@ def main():
 
     ds_val = get_validation_dataset(valid_files, params["batch_size"], image_size=IMAGE_SIZE)
 
-    X_val, y_val = ds_val.map(lambda image, _: image).cache(), list(ds_val.map(lambda _, label: label).as_numpy_iterator()),
+    X_val, y_val = ds_val.map(lambda image, _: image).cache(), list(
+        ds_val.map(lambda _, label: label).as_numpy_iterator()),
+
+    X_emb = model.predict(X_val)
+    score = compute_precision(X_emb, y_val)
+    print("Epoch -1, Precision: {}".format(score))
 
     for epoch in range(params["epochs"]):
         steps_per_epoch = len(train_files)
@@ -281,7 +287,8 @@ def main():
 
         random.shuffle(train_files)
 
-        model.save_weights(model_dir,"model-{}.h5".format(epoch),save_format="h5",)
+        model.save_weights(model_dir, "model-{}.h5".format(epoch), save_format="h5", )
+
 
 if __name__ == "__main__":
     main()
