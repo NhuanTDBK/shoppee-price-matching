@@ -287,7 +287,7 @@ def main():
 
         random.shuffle(train_files)
 
-        model.save_weights(model_dir, "model-{}.h5".format(epoch), save_format="h5", )
+        model.save_weights(os.path.join(model_dir, "model-{}.h5".format(epoch)), save_format="h5", )
 
 
 if __name__ == "__main__":
