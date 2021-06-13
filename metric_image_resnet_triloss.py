@@ -259,7 +259,7 @@ def main():
 
     ds_val = get_validation_dataset(valid_files, params["batch_size"], image_size=IMAGE_SIZE)
 
-    X_val, y_val = ds_val.map(lambda image, _: image).cache(), ds_val.map(lambda _, label: label).cache()
+    X_val, y_val = ds_val.map(lambda image, _: image).cache(), list(ds_val.map(lambda _, label: label).as_numpy_iterator()),
 
     for epoch in range(params["epochs"]):
         steps_per_epoch = len(train_files)
@@ -276,11 +276,12 @@ def main():
                 ])
 
         X_emb = model.predict(X_val)
-        score = compute_precision(X_emb, y_val.as_numpy_iterator(), )
-        print("Epoch {}: Precision: {}".format(epoch, score))
+        score = compute_precision(X_emb, y_val)
+        print("Epoch : {}, Precision: {}".format(epoch, score))
 
         random.shuffle(train_files)
 
+        model.save_weights(model_dir,"model-{}.h5".format(epoch),save_format="h5",)
 
 if __name__ == "__main__":
     main()
