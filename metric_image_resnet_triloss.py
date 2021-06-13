@@ -16,6 +16,9 @@ image_feature_description = {
     'toks': tf.io.FixedLenFeature([70], tf.int64)
 }
 
+#Imagenet
+MEAN_RGB = [0.485, 0.456, 0.406]
+STDDEV_RGB = [0.229, 0.224, 0.225]
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -153,9 +156,13 @@ def data_augment(image):
 
 
 def normalize_image(image):
-    image -= tf.constant([0.485 * 255, 0.456 * 255, 0.406 * 255])  # RGB
-    image /= tf.constant([0.229 * 255, 0.224 * 255, 0.225 * 255])  # RGB
+    image = tf.cast(image,tf.float32) / 255.0
 
+    offset = tf.constant(MEAN_RGB, shape=[1, 1, 3])
+    image -= offset
+
+    scale = tf.constant(STDDEV_RGB, shape=[1, 1, 3])
+    image /= scale
     return image
 
 
