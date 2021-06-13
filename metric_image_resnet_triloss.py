@@ -154,18 +154,22 @@ def main():
     X_val, y_val = ds_val.map(lambda image, _: image).cache(), ds_val.map(lambda _, label: label).cache()
 
     for epoch in range(params["epochs"]):
-        steps_per_epoch = int(np.ceil(len(train_files) / params["batch_size"]))
+        steps_per_epoch = len(train_files)
         pbar = tf.keras.utils.Progbar(steps_per_epoch)
 
         for i in range(len(train_files)):
             num_files = count_data_items(train_files[[i]])
-            ds_train = get_training_dataset(train_files[i],num_files,image_size=IMAGE_SIZE).map(lambda image, label_group: (image["inp1"], label_group))
+            ds_train = get_training_dataset(train_files[i], num_files, image_size=IMAGE_SIZE, shuffle=False).map(
+                lambda image, label_group: (image["inp1"], label_group))
 
-            for _, (x_batch_train, y_batch_train) in enumerate(ds_train):
-                train_loss_value = train_step(x_batch_train, y_batch_train)
-                pbar.update(i, values=[
-                    ("train_loss", train_loss_value),
-                ])
+            # for _, (x_batch_train, y_batch_train) in enumerate(ds_train):
+            x_batch_train = ds_train.map(lambda image, label: image)
+            y_batch_train = ds_train.map(lambda image, label: label)
+
+            train_loss_value = train_step(x_batch_train, y_batch_train)
+            pbar.update(i, values=[
+                ("train_loss", train_loss_value),
+            ])
 
         X_emb = model.predict(X_val)
         score = compute_precision(X_emb, y_val.as_numpy_iterator(), )
