@@ -2,8 +2,8 @@ import argparse
 
 import tensorflow_addons as tfx
 
-from features.pool import LocalGlobalExtractor
 from contrastive.loader import get_validation_dataset, get_training_dataset
+from features.pool import LocalGlobalExtractor
 from utils import *
 
 
@@ -104,7 +104,6 @@ def compute_precision(X: np.ndarray, y: list, top_k=50, threshold=0.8):
     return mean_scores
 
 
-
 def main():
     seed_everything(SEED)
 
@@ -150,6 +149,14 @@ def main():
     score = compute_precision(X_emb, y_val)
     print("Epoch -1, Precision: {}".format(score))
 
+    ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer)
+
+    ckpt_dir = os.makedirs(os.path.join(model_dir, "checkpoint"))
+    ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=-1)
+
+    if ckpt_manager.latest_checkpoint:
+        ckpt.restore(ckpt_manager.latest_checkpoint)
+
     for epoch in range(params["epochs"]):
         steps_per_epoch = len(train_files)
         pbar = tf.keras.utils.Progbar(steps_per_epoch)
@@ -165,12 +172,13 @@ def main():
                 ])
 
         X_emb = model.predict(X_val)
-        score = compute_precision(X_emb, y_val)
-        print("\nEpoch : {}, Precision: {}".format(epoch, score))
+        scores = compute_precision(X_emb, y_val)
+        print("\nEpoch : {.2d}, Precision: {.4f}, Recall: {.4f}".format(epoch, scores[0], scores[1]))
 
         random.shuffle(train_files)
 
-        model.save_weights(os.path.join(model_dir, "model-{}.h5".format(epoch)), save_format="h5", )
+        # model.save_weights(os.path.join(model_dir, "model-{}.h5".format(epoch)), save_format="h5", )
+        ckpt_manager.save(epoch)
 
 
 if __name__ == "__main__":
