@@ -83,7 +83,7 @@ def distorted_bounding_box_crop(image,
     Returns:
       (cropped image `Tensor`, distorted bbox `Tensor`).
     """
-    with tf.name_scope(scope, default_name="distorted_bounding_box_crop", values=[image, bbox]):
+    with tf.name_scope("distorted_bounding_box_crop"):
         # Each bounding box has shape [1, num_boxes, box coords] and
         # the coordinates are ordered [ymin, xmin, ymax, xmax].
 

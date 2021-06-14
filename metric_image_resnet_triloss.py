@@ -148,7 +148,7 @@ def main():
     ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer)
 
     ckpt_dir = os.path.join(model_dir, "checkpoint")
-    os.makedirs(ckpt_dir)
+    os.makedirs(ckpt_dir,exist_ok=True)
 
     ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=None)
 
