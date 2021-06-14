@@ -13,21 +13,15 @@ def parse_args():
     parser.add_argument("--model_name", type=str, default='resnet50')
     parser.add_argument("--epochs", type=int, default=25)
     parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--margin", type=float, default=1.0)
-    parser.add_argument("--s", type=float, default=30)
+    parser.add_argument("--margin", type=float, default=0.5)
     parser.add_argument("--pool", type=str, default="gem")
     parser.add_argument("--dropout", type=float, default=0.5)
-    parser.add_argument("--last_hidden_states", type=int, default=3)
     parser.add_argument("--fc_dim", type=int, default=512)
-    parser.add_argument("--lr", type=float, default=0.00001)
+    parser.add_argument("--lr", type=float, default=1e-6)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
-    parser.add_argument("--l2_wd", type=float, default=1e-5)
-    parser.add_argument("--metric", type=str, default="adacos")
     parser.add_argument("--input_path", type=str)
-    parser.add_argument("--smooth_ce", type=float, default=0.0)
     parser.add_argument("--warmup_epoch", type=int, default=10)
     parser.add_argument("--verbose", type=int, default=0)
-    parser.add_argument("--resume_fold", type=int, default=None)
     parser.add_argument("--image_size", type=int, default=512)
     parser.add_argument("--check_period", type=int, default=5)
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
@@ -67,6 +61,9 @@ def get_lr_callback(total_size):
 
 def compute_precision_recall(X: np.ndarray, y: list, top_k=50, threshold=0.8):
     def precision(y_true: np.ndarray, y_pred: np.ndarray):
+        if len(y_pred) == 0:
+            return 0.0
+
         y_true_set = set(y_true)
         y_pred_set = set(y_pred)
         tp = len(y_true_set.intersection(y_pred_set))
