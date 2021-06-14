@@ -59,7 +59,7 @@ def get_lr_callback(total_size):
                                       warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
 
 
-def compute_precision_recall(X: np.ndarray, y: list, top_k=50, threshold=0.8):
+def compute_precision_recall(X: np.ndarray, y: list, top_k=12, threshold=0.8):
     def precision(y_true: np.ndarray, y_pred: np.ndarray):
         if len(y_pred) == 0:
             return 0.0
@@ -89,10 +89,11 @@ def compute_precision_recall(X: np.ndarray, y: list, top_k=50, threshold=0.8):
     knn = NearestNeighbors(top_k, n_jobs=-1).fit(X)
 
     mean_scores = np.array([0.0, 0.0])
-    dists, _ = knn.kneighbors(X)
+    dists, indices = knn.kneighbors(X)
 
     for i in range(len(y)):
-        y_pred_i = np.where(dists[i] >= threshold)[0]
+        # y_pred_i = np.where(dists[i] >= threshold)[0]
+        y_pred_i = indices[i]
         mean_scores += np.array([
             precision(y_true=y_true[i], y_pred=y_pred_i) * 1.0 / len(y),
             recall(y_true=y_true[i], y_pred=y_pred_i) * 1.0 / len(y),
