@@ -113,7 +113,7 @@ def main():
     train_files = np.array([fpath for fpath in glob.glob(input_paths + "/train*.tfrec")])
     valid_files = np.array([fpath for fpath in glob.glob(input_paths + "/valid*.tfrec")])
 
-    print("Found training files: ", train_files)
+    # print("Found training files: ", train_files)
 
     model = create_model()
 
@@ -173,7 +173,7 @@ def main():
         X_emb = model.predict(X_val)
         scores = compute_precision_recall(X_emb, y_val, metric=params["metric"], threshold=params["threshold"],
                                           top_k=params["top_k"])
-        print("\nEpoch : {.2d}, Precision: {.4f}, Recall: {.4f}".format(epoch, scores[0], scores[1]))
+        print("\nEpoch : {}, Precision: {:.4f}, Recall: {:.4f}".format(epoch, scores[0], scores[1]))
 
         random.shuffle(train_files)
 
