@@ -20,7 +20,6 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=1e-6)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
     parser.add_argument("--input_path", type=str)
-    parser.add_argument("--warmup_epoch", type=int, default=10)
     parser.add_argument("--verbose", type=int, default=0)
     parser.add_argument("--image_size", type=int, default=512)
     parser.add_argument("--check_period", type=int, default=5)
@@ -30,6 +29,7 @@ def parse_args():
 
     parser.add_argument("--metric", type=str, default="cosine")
     parser.add_argument("--threshold", type=float, default=0.2)
+    parser.add_argument("--top_k", type=float, default=50)
 
     args = parser.parse_args()
     params = vars(args)
@@ -62,7 +62,7 @@ def get_lr_callback(total_size):
                                       warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
 
 
-def compute_precision_recall(X: np.ndarray, y: list, metric="cosine", top_k=12, threshold=0.8):
+def compute_precision_recall(X: np.ndarray, y: list, metric="cosine", top_k=24, threshold=0.8):
     def precision(y_true: np.ndarray, y_pred: np.ndarray):
         if len(y_pred) == 0:
             return 0.0
@@ -142,8 +142,8 @@ def main():
         ds_val.map(lambda _, label: label).unbatch().as_numpy_iterator()),
 
     X_emb = model.predict(X_val)
-    score = compute_precision_recall(X_emb, y_val,metric=params["metric"],threshold=params["threshold"])
-    print("Epoch -1, Precision: {}".format(score))
+    scores = compute_precision_recall(X_emb, y_val,metric=params["metric"],threshold=params["threshold"],top_k=params["top_k"])
+    print("Epoch -1, Score: {}".format(scores))
 
     ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer)
 
@@ -170,7 +170,7 @@ def main():
                 ])
 
         X_emb = model.predict(X_val)
-        scores = compute_precision_recall(X_emb, y_val,metric=params["metric"],threshold=params["threshold"])
+        scores = compute_precision_recall(X_emb, y_val,metric=params["metric"],threshold=params["threshold"],top_k=params["top_k"])
         print("\nEpoch : {.2d}, Precision: {.4f}, Recall: {.4f}".format(epoch, scores[0], scores[1]))
 
         random.shuffle(train_files)
