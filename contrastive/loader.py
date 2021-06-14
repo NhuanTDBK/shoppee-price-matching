@@ -223,8 +223,9 @@ def normalize_image(image):
     offset = tf.constant(MEAN_RGB, shape=[1, 1, 3])
     image -= offset
 
-    scale = tf.constant(STDDEV_RGB, shape=[1, 1, 3])
-    image /= scale
+    # scale = tf.constant(STDDEV_RGB, shape=[1, 1, 3])
+    # image /= scale
+
     return image
 
 
