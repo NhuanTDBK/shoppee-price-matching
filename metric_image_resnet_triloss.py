@@ -29,7 +29,7 @@ def parse_args():
 
     parser.add_argument("--metric", type=str, default="cosine")
     parser.add_argument("--threshold", type=float, default=0.2)
-    parser.add_argument("--top_k", type=float, default=50)
+    parser.add_argument("--top_k", type=int, default=50)
 
     args = parser.parse_args()
     params = vars(args)
