@@ -65,7 +65,7 @@ def get_lr_callback(total_size):
                                       warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
 
 
-def compute_precision(X: np.ndarray, y: list, top_k=50, threshold=0.8):
+def compute_precision_recall(X: np.ndarray, y: list, top_k=50, threshold=0.8):
     def precision(y_true: np.ndarray, y_pred: np.ndarray):
         y_true_set = set(y_true)
         y_pred_set = set(y_pred)
@@ -135,24 +135,19 @@ def main():
     optimizer = tf.optimizers.Adam(learning_rate=params["lr"])
     loss = tfx.losses.TripletSemiHardLoss(margin=params["margin"])
 
-    # callbacks = [
-    #     get_lr_callback(num_training_images),
-    #     tf.keras.callbacks.TensorBoard(log_dir="logs-{}".format(fold_idx), histogram_freq=2)
-    # ]
-
     ds_val = get_validation_dataset(valid_files, params["batch_size"], image_size=IMAGE_SIZE)
 
     X_val, y_val = ds_val.map(lambda image, _: image).cache(), list(
         ds_val.map(lambda _, label: label).unbatch().as_numpy_iterator()),
 
     X_emb = model.predict(X_val)
-    score = compute_precision(X_emb, y_val)
+    score = compute_precision_recall(X_emb, y_val)
     print("Epoch -1, Precision: {}".format(score))
 
     ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer)
 
     ckpt_dir = os.makedirs(os.path.join(model_dir, "checkpoint"))
-    ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=-1)
+    ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=None)
 
     if ckpt_manager.latest_checkpoint:
         ckpt.restore(ckpt_manager.latest_checkpoint)
@@ -172,7 +167,7 @@ def main():
                 ])
 
         X_emb = model.predict(X_val)
-        scores = compute_precision(X_emb, y_val)
+        scores = compute_precision_recall(X_emb, y_val)
         print("\nEpoch : {.2d}, Precision: {.4f}, Recall: {.4f}".format(epoch, scores[0], scores[1]))
 
         random.shuffle(train_files)
@@ -185,7 +180,6 @@ if __name__ == "__main__":
     params = parse_args()
 
     SEED = 4111
-    N_CLASSES = 11014
     IMAGE_SIZE = (params["image_size"], params["image_size"])
 
     saved_path = params["saved_path"]
