@@ -5,21 +5,6 @@ import tensorflow_addons as tfx
 from features.pool import LocalGlobalExtractor
 from utils import *
 
-AUTO = tf.data.experimental.AUTOTUNE
-image_feature_description = {
-    'posting_id': tf.io.FixedLenFeature([], tf.string),
-    'image': tf.io.FixedLenFeature([], tf.string),
-    'label_group': tf.io.FixedLenFeature([], tf.int64),
-    'matches': tf.io.FixedLenFeature([], tf.string),
-    'ids': tf.io.FixedLenFeature([70], tf.int64),
-    'atts': tf.io.FixedLenFeature([70], tf.int64),
-    'toks': tf.io.FixedLenFeature([70], tf.int64)
-}
-
-# Imagenet
-MEAN_RGB = [0.485, 0.456, 0.406]
-STDDEV_RGB = [0.229, 0.224, 0.225]
-
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -53,26 +38,6 @@ def parse_args():
     return params
 
 
-params = parse_args()
-
-SEED = 4111
-N_CLASSES = 11014
-IMAGE_SIZE = (params["image_size"], params["image_size"])
-
-saved_path = params["saved_path"]
-model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["image_size"]))
-os.makedirs(model_dir, exist_ok=True)
-
-image_extractor_mapper = {
-    "resnet50": tf.keras.applications.ResNet50,
-    "resnet101": tf.keras.applications.ResNet101,
-    "resnet101_v2": tf.keras.applications.ResNet101V2,
-    "resnet150": tf.keras.applications.ResNet152,
-    "resnet150_v2": tf.keras.applications.ResNet152V2,
-    "inception_resnet_v2": tf.keras.applications.InceptionResNetV2
-}
-
-
 def create_model():
     inp = tf.keras.layers.Input(shape=(*IMAGE_SIZE, 3), name='inp1')
     resnet = image_extractor_mapper[params["model_name"]](include_top=False, weights="imagenet")
@@ -99,13 +64,20 @@ def get_lr_callback(total_size):
                                       warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
 
 
-def compute_precision(X: np.ndarray, y: list, top_k=6):
+def compute_precision(X: np.ndarray, y: list, top_k=50, threshold=0.8):
     def precision(y_true: np.ndarray, y_pred: np.ndarray):
         y_true_set = set(y_true)
         y_pred_set = set(y_pred)
         tp = len(y_true_set.intersection(y_pred_set))
 
         return tp * 1. / len(y_pred)
+
+    def recall(y_true: np.ndarray, y_pred: np.ndarray):
+        y_true_set = set(y_true)
+        y_pred_set = set(y_pred)
+        tp = len(y_true_set.intersection(y_pred_set))
+
+        return tp * 1. / len(y_true)
 
     y_true = []
 
@@ -115,37 +87,73 @@ def compute_precision(X: np.ndarray, y: list, top_k=6):
     for c in y:
         y_true.append(np.where(y == c)[0])
 
-    # sim_matrix = np.dot(X, X.T)
-    # y_pred_indices = np.argsort(-sim_matrix, axis=1)[:,:top_k]
     from sklearn.neighbors import NearestNeighbors
-    knn = NearestNeighbors(50,n_jobs=-1).fit(X)
+    knn = NearestNeighbors(top_k, n_jobs=-1).fit(X)
 
-    mean_ = 0.0
+    mean_scores = np.array([0.0, 0.0])
+    dists, _ = knn.kneighbors(X)
 
-    dists, indices = knn.kneighbors(X)
-    for i in range(len(indices)):
-        mean_ += precision(y_true=y_true[i], y_pred=indices[i]) / len(y)
+    for i in range(len(y)):
+        y_pred_i = np.where(dists[i] >= threshold)[0]
+        mean_scores += np.array([
+            precision(y_true=y_true[i], y_pred=y_pred_i) * 1.0 / len(y),
+            recall(y_true=y_true[i], y_pred=y_pred_i) * 1.0 / len(y),
+        ])
 
-    return mean_
+    return mean_scores
 
 
 def resize(img, h, w):
     return tf.image.resize(img, (tf.cast(h, tf.int32), tf.cast(w, tf.int32)))
 
 
-# def crop_center(img, image_size, crop_size):
-#     h, w = image_size[0], image_size[1]
-#     crop_h, crop_w = crop_size[0], crop_size[1]
-#
-#     if crop_h > h or crop_w > w:
-#         return tf.image.resize(img, crop_size)
-#
-#     crop_top = tf.cast(tf.round((h - crop_h) // 2), tf.int32)
-#     crop_left = tf.cast(tf.round((w - crop_w) // 2), tf.int32)
-#
-#     image = tf.image.crop_to_bounding_box(
-#         img, crop_top, crop_left, crop_h, crop_w)
-#     return image
+def _crop(image, offset_height, offset_width, crop_height, crop_width):
+    """Crops the given image using the provided offsets and sizes.
+    Note that the method doesn't assume we know the input image size but it does
+    assume we know the input image rank.
+    Args:
+      image: `Tensor` image of shape [height, width, channels].
+      offset_height: `Tensor` indicating the height offset.
+      offset_width: `Tensor` indicating the width offset.
+      crop_height: the height of the cropped image.
+      crop_width: the width of the cropped image.
+    Returns:
+      the cropped (and resized) image.
+    Raises:
+      InvalidArgumentError: if the rank is not 3 or if the image dimensions are
+        less than the crop size.
+    """
+    original_shape = tf.shape(image)
+
+    rank_assertion = tf.Assert(
+        tf.equal(tf.rank(image), 3), ["Rank of image must be equal to 3."])
+    with tf.control_dependencies([rank_assertion]):
+        cropped_shape = tf.stack([crop_height, crop_width, original_shape[2]])
+
+    size_assertion = tf.Assert(
+        tf.logical_and(
+            tf.greater_equal(original_shape[0], crop_height),
+            tf.greater_equal(original_shape[1], crop_width)),
+        ["Crop size greater than the image size."])
+
+    offsets = tf.cast(tf.stack([offset_height, offset_width, 0]), tf.int32)
+
+    # Use tf.slice instead of crop_to_bounding box as it accepts tensors to
+    # define the crop size.
+    with tf.control_dependencies([size_assertion]):
+        image = tf.slice(image, offsets, cropped_shape)
+    return tf.reshape(image, cropped_shape)
+
+
+def _center_crop(image, size):
+    """Crops to center of image with specified `size`."""
+    image_height = tf.shape(image)[0]
+    image_width = tf.shape(image)[1]
+
+    offset_height = ((image_height - size) + 1) / 2
+    offset_width = ((image_width - size) + 1) / 2
+    image = _crop(image, offset_height, offset_width, size, size)
+    return image
 
 
 # Data augmentation function
@@ -217,7 +225,8 @@ def get_training_dataset(filenames, batch_size, ordered=False, image_size=(224, 
 # This function is to get our validation tensors
 def get_validation_dataset(filenames, batch_size, ordered=True, image_size=(224, 224)):
     dataset = load_dataset(filenames, read_labeled_tfrecord, ordered=ordered, )
-    dataset = dataset.map(lambda image, label: (tf.image.resize(image, image_size, ), label))
+    # dataset = dataset.map(lambda image, label: (tf.image.resize(image, image_size, ), label))
+    dataset = dataset.map(lambda image, label: (_center_crop(image, image_size, ), label))
     dataset = dataset.map(lambda image, label: (normalize_image(image), label))
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(AUTO)
@@ -290,8 +299,42 @@ def main():
 
         random.shuffle(train_files)
 
-        model.save_weights(os.path.join(model_dir, "model-{}.h5".format(epoch)), save_format="h5",)
+        model.save_weights(os.path.join(model_dir, "model-{}.h5".format(epoch)), save_format="h5", )
 
 
 if __name__ == "__main__":
+    params = parse_args()
+
+    SEED = 4111
+    N_CLASSES = 11014
+    IMAGE_SIZE = (params["image_size"], params["image_size"])
+
+    saved_path = params["saved_path"]
+    model_dir = os.path.join(saved_path, "saved", params["model_name"], str(params["image_size"]))
+    os.makedirs(model_dir, exist_ok=True)
+
+    image_extractor_mapper = {
+        "resnet50": tf.keras.applications.ResNet50,
+        "resnet101": tf.keras.applications.ResNet101,
+        "resnet101_v2": tf.keras.applications.ResNet101V2,
+        "resnet150": tf.keras.applications.ResNet152,
+        "resnet150_v2": tf.keras.applications.ResNet152V2,
+        "inception_resnet_v2": tf.keras.applications.InceptionResNetV2
+    }
+
+    AUTO = tf.data.experimental.AUTOTUNE
+    image_feature_description = {
+        'posting_id': tf.io.FixedLenFeature([], tf.string),
+        'image': tf.io.FixedLenFeature([], tf.string),
+        'label_group': tf.io.FixedLenFeature([], tf.int64),
+        'matches': tf.io.FixedLenFeature([], tf.string),
+        'ids': tf.io.FixedLenFeature([70], tf.int64),
+        'atts': tf.io.FixedLenFeature([70], tf.int64),
+        'toks': tf.io.FixedLenFeature([70], tf.int64)
+    }
+
+    # Imagenet
+    MEAN_RGB = [0.485, 0.456, 0.406]
+    STDDEV_RGB = [0.229, 0.224, 0.225]
+
     main()
