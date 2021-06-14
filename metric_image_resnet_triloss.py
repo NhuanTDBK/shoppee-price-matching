@@ -117,7 +117,7 @@ def main():
 
     model = create_model()
 
-    @tf.function
+    @tf.function(experimental_relax_shapes=True)
     def train_step(X, y):
         with tf.GradientTape() as tape:
             y_pred = model(X, training=True)
@@ -127,7 +127,7 @@ def main():
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
         return loss_value
 
-    @tf.function
+    @tf.function(experimental_relax_shapes=True)
     def val_step(X, y):
         y_pred = model(X, training=False)
         loss_value = loss(y_true=y, y_pred=y_pred)
@@ -142,13 +142,14 @@ def main():
         ds_val.map(lambda _, label: label).unbatch().as_numpy_iterator()),
 
     X_emb = model.predict(X_val)
-    scores = compute_precision_recall(X_emb, y_val,metric=params["metric"],threshold=params["threshold"],top_k=params["top_k"])
+    scores = compute_precision_recall(X_emb, y_val, metric=params["metric"], threshold=params["threshold"],
+                                      top_k=params["top_k"])
     print("Epoch -1, Score: {}".format(scores))
 
     ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer)
 
     ckpt_dir = os.path.join(model_dir, "checkpoint")
-    os.makedirs(ckpt_dir,exist_ok=True)
+    os.makedirs(ckpt_dir, exist_ok=True)
 
     ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=None)
 
@@ -170,7 +171,8 @@ def main():
                 ])
 
         X_emb = model.predict(X_val)
-        scores = compute_precision_recall(X_emb, y_val,metric=params["metric"],threshold=params["threshold"],top_k=params["top_k"])
+        scores = compute_precision_recall(X_emb, y_val, metric=params["metric"], threshold=params["threshold"],
+                                          top_k=params["top_k"])
         print("\nEpoch : {.2d}, Precision: {.4f}, Recall: {.4f}".format(epoch, scores[0], scores[1]))
 
         random.shuffle(train_files)
