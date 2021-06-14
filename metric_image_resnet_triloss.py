@@ -28,6 +28,9 @@ def parse_args():
     parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--is_checkpoint", type=bool, default=True)
 
+    parser.add_argument("--metric", type=str, default="cosine")
+    parser.add_argument("--threshold", type=float, default=0.2)
+
     args = parser.parse_args()
     params = vars(args)
     return params
@@ -59,7 +62,7 @@ def get_lr_callback(total_size):
                                       warmup_learning_rate=0.0, warmup_steps=warmup_steps, hold_base_rate_steps=0)
 
 
-def compute_precision_recall(X: np.ndarray, y: list, top_k=12, threshold=0.8):
+def compute_precision_recall(X: np.ndarray, y: list, metric="cosine", top_k=12, threshold=0.8):
     def precision(y_true: np.ndarray, y_pred: np.ndarray):
         if len(y_pred) == 0:
             return 0.0
@@ -86,14 +89,14 @@ def compute_precision_recall(X: np.ndarray, y: list, top_k=12, threshold=0.8):
         y_true.append(np.where(y == c)[0])
 
     from sklearn.neighbors import NearestNeighbors
-    knn = NearestNeighbors(top_k, n_jobs=-1).fit(X)
+    knn = NearestNeighbors(top_k, n_jobs=-1, metric=metric).fit(X)
 
     mean_scores = np.array([0.0, 0.0])
     dists, indices = knn.kneighbors(X)
 
     for i in range(len(y)):
-        # y_pred_i = np.where(dists[i] >= threshold)[0]
-        y_pred_i = indices[i]
+        y_pred_i = np.where(dists[i] <= threshold)[0]
+        # y_pred_i = indices[i]
         mean_scores += np.array([
             precision(y_true=y_true[i], y_pred=y_pred_i) * 1.0 / len(y),
             recall(y_true=y_true[i], y_pred=y_pred_i) * 1.0 / len(y),
@@ -139,12 +142,14 @@ def main():
         ds_val.map(lambda _, label: label).unbatch().as_numpy_iterator()),
 
     X_emb = model.predict(X_val)
-    score = compute_precision_recall(X_emb, y_val)
+    score = compute_precision_recall(X_emb, y_val,metric=params["metric"],threshold=params["threshold"])
     print("Epoch -1, Precision: {}".format(score))
 
     ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer)
 
-    ckpt_dir = os.makedirs(os.path.join(model_dir, "checkpoint"))
+    ckpt_dir = os.path.join(model_dir, "checkpoint")
+    os.makedirs(ckpt_dir)
+
     ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=None)
 
     if ckpt_manager.latest_checkpoint:
@@ -165,7 +170,7 @@ def main():
                 ])
 
         X_emb = model.predict(X_val)
-        scores = compute_precision_recall(X_emb, y_val)
+        scores = compute_precision_recall(X_emb, y_val,metric=params["metric"],threshold=params["threshold"])
         print("\nEpoch : {.2d}, Precision: {.4f}, Recall: {.4f}".format(epoch, scores[0], scores[1]))
 
         random.shuffle(train_files)
