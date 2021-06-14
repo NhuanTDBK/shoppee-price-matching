@@ -168,8 +168,8 @@ def _normalize(image):
     offset = tf.constant(MEAN_RGB, shape=[1, 1, 3])
     image -= offset
 
-    scale = tf.constant(STDDEV_RGB, shape=[1, 1, 3])
-    image /= scale
+    # scale = tf.constant(STDDEV_RGB, shape=[1, 1, 3])
+    # image /= scale
     return image
 
 
@@ -213,18 +213,6 @@ def data_augment(image):
     image = tf.image.random_saturation(image, 0.70, 1.30)
     image = tf.image.random_contrast(image, 0.80, 1.20)
     image = tf.image.random_brightness(image, 0.10)
-
-    return image
-
-
-def normalize_image(image):
-    image = tf.cast(image, tf.float32) / 255.0
-
-    offset = tf.constant(MEAN_RGB, shape=[1, 1, 3])
-    image -= offset
-
-    # scale = tf.constant(STDDEV_RGB, shape=[1, 1, 3])
-    # image /= scale
 
     return image
 
