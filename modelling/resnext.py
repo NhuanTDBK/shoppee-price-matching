@@ -27,6 +27,8 @@ import warnings
 
 import numpy as np
 
+from tensorflow.keras import layers, models, utils,backend
+
 BASE_WEIGHTS_PATH = (
     'https://github.com/keras-team/keras-applications/'
     'releases/download/resnet/')
@@ -433,8 +435,8 @@ def ResNet(stack_fn,
         ValueError: in case of invalid argument for `weights`,
             or invalid input shape.
     """
-    global backend, layers, models, keras_utils
-    backend, layers, models, keras_utils = get_submodules_from_kwargs(kwargs)
+    # global backend, layers, models, keras_utils
+    # backend, layers, models, keras_utils = get_submodules_from_kwargs(kwargs)
 
     if not (weights in {'imagenet', None} or os.path.exists(weights)):
         raise ValueError('The `weights` argument should be either '
@@ -494,7 +496,7 @@ def ResNet(stack_fn,
     # Ensure that the model takes into account
     # any potential predecessors of `input_tensor`.
     if input_tensor is not None:
-        inputs = keras_utils.get_source_inputs(input_tensor)
+        inputs = utils.get_source_inputs(input_tensor)
     else:
         inputs = img_input
 
@@ -509,7 +511,7 @@ def ResNet(stack_fn,
         else:
             file_name = model_name + '_weights_tf_dim_ordering_tf_kernels_notop.h5'
             file_hash = WEIGHTS_HASHES[model_name][1]
-        weights_path = keras_utils.get_file(file_name,
+        weights_path = utils.get_file(file_name,
                                             BASE_WEIGHTS_PATH + file_name,
                                             cache_subdir='models',
                                             file_hash=file_hash)

@@ -136,7 +136,6 @@ def main():
 
     optimizer = tf.optimizers.Adam(learning_rate=params["lr"])
 
-
     ds_val = get_validation_dataset(valid_files, params["batch_size"], image_size=IMAGE_SIZE)
 
     X_val, y_val = ds_val.map(lambda image, _: image).cache(), list(
@@ -158,7 +157,7 @@ def main():
         ckpt.restore(ckpt_manager.latest_checkpoint)
 
     # loss = tfx.losses.TripletSemiHardLoss(margin=params["margin"])
-    loss = tfx.losses.TripletHardLoss(margin=params["margin"],name="train_loss_op")
+    loss = tfx.losses.TripletHardLoss(margin=params["margin"], name="train_loss_op")
 
     margin = params["margin"]
 
