@@ -30,6 +30,7 @@ def parse_args():
     parser.add_argument("--metric", type=str, default="cosine")
     parser.add_argument("--threshold", type=float, default=0.2)
     parser.add_argument("--top_k", type=int, default=50)
+    parser.add_argument("--margin_delta", type=float, default=0.0)
 
     args = parser.parse_args()
     params = vars(args)
@@ -134,7 +135,7 @@ def main():
         return loss_value
 
     optimizer = tf.optimizers.Adam(learning_rate=params["lr"])
-    loss = tfx.losses.TripletSemiHardLoss(margin=params["margin"])
+
 
     ds_val = get_validation_dataset(valid_files, params["batch_size"], image_size=IMAGE_SIZE)
 
@@ -155,6 +156,11 @@ def main():
 
     if ckpt_manager.latest_checkpoint:
         ckpt.restore(ckpt_manager.latest_checkpoint)
+
+    # loss = tfx.losses.TripletSemiHardLoss(margin=params["margin"])
+    loss = tfx.losses.TripletHardLoss(margin=params["margin"],name="train_loss_op")
+
+    margin = params["margin"]
 
     for epoch in range(params["epochs"]):
         steps_per_epoch = len(train_files)
@@ -179,6 +185,11 @@ def main():
 
         # model.save_weights(os.path.join(model_dir, "model-{}.h5".format(epoch)), save_format="h5", )
         ckpt_manager.save(epoch)
+
+        print("Change loss after first epoch")
+        margin += params["margin_delta"]
+
+        loss = tfx.losses.TripletSemiHardLoss(margin=margin)
 
 
 if __name__ == "__main__":
