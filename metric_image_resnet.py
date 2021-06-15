@@ -8,6 +8,7 @@ from features.img import *
 from features.pool import LocalGlobalExtractor
 from modelling.metrics import MetricLearner
 from utils import *
+from modelling.resnext import ResNeXt50, ResNeXt101
 
 
 def parse_args():
@@ -59,6 +60,8 @@ image_extractor_mapper = {
     "resnet150": tf.keras.applications.ResNet152,
     "resnet150_v2": tf.keras.applications.ResNet152V2,
     "inception_resnet_v2": tf.keras.applications.InceptionResNetV2
+    "resnext50": ResNeXt50,
+    "resnext101": ResNeXt101,
 }
 
 
@@ -110,7 +113,6 @@ def main():
     cv = KFold(n_folds, shuffle=True, random_state=SEED)
     
     for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(files, np.arange(n_folds))):
-    # for fold_idx in range(len(train_files)):
         if params["resume_fold"] and params["resume_fold"] != fold_idx:
             continue
 

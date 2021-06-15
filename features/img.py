@@ -37,8 +37,8 @@ def normalize_image(image):
     image = tf.cast(image, tf.float32) / 255.0
 
     # # Imagenet scaling
-    image -= tf.constant([0.485,0.456,0.406])
-    image /= tf.constant([0.229,0.224,0.225])
+    # image -= tf.constant([0.485,0.456,0.406])
+    # image /= tf.constant([0.229,0.224,0.225])
 
     # Shopee 224
     # image -= tf.constant([0.18064207, 0.17303748, 0.16691259])

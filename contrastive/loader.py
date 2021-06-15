@@ -225,13 +225,6 @@ def read_labeled_tfrecord(example, image_size=(224, 224)):
     return image, label_group
 
 
-def random_crop(image, image_size=(224, 224)):
-    image = tf.image.resize(image, (image_size[0] + 8, image_size[1] + 8))
-    image = tf.image.random_crop(image, (*image_size, 3))
-
-    return image
-
-
 # This function loads TF Records and parse them into tensors
 def load_dataset(filenames, decode_tf_record_fn, ordered=False):
     ignore_order = tf.data.Options()
