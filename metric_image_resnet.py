@@ -59,7 +59,7 @@ image_extractor_mapper = {
     "resnet101_v2": tf.keras.applications.ResNet101V2,
     "resnet150": tf.keras.applications.ResNet152,
     "resnet150_v2": tf.keras.applications.ResNet152V2,
-    "inception_resnet_v2": tf.keras.applications.InceptionResNetV2
+    "inception_resnet_v2": tf.keras.applications.InceptionResNetV2,
     "resnext50": ResNeXt50,
     "resnext101": ResNeXt101,
 }
