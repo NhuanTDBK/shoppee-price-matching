@@ -37,6 +37,7 @@ def parse_args():
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
     parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--is_checkpoint", type=bool, default=True)
+    parser.add_argument("--restore_path", type=str, default="")
 
     args = parser.parse_args()
     params = vars(args)
@@ -136,7 +137,8 @@ def main():
         ]
 
         model_id = "fold_" + str(fold_idx)
-        train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val, num_training_images, model_dir, model_id)
+        
+        train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val, num_training_images, model_dir, model_id,params["restore_path"])
 
 
 if __name__ == "__main__":

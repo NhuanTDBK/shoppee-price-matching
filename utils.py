@@ -44,7 +44,7 @@ def get_disk_path():
 def train(params: dict, model_fn,
           optimizer: tf.optimizers.Optimizer,
           loss: tf.keras.losses.Loss, metrics, callbacks, ds_train, ds_val=None, num_training_images=None,
-          model_saved_dir=None, model_name=None):
+          model_saved_dir=None, model_name=None,restore_path=None):
     model, emb_model = model_fn()
     model.compile(optimizer, loss, metrics)
 
@@ -83,12 +83,20 @@ def train(params: dict, model_fn,
     steps_per_epoch = num_training_images // params["batch_size"]
     epochs = params["epochs"]
 
-    if ckpt_manager.latest_checkpoint:
-        print("Restored from: ", ckpt_manager.latest_checkpoint)
-        ckpt.restore(ckpt_manager.latest_checkpoint)
-        epochs -= tf.keras.backend.get_value(ckpt.epoch)
+    if restore_path:
+        _ckpt_manager = tf.train.CheckpointManager(ckpt, restore_path, max_to_keep=1,)
+        if _ckpt_manager.latest_checkpoint:
+            print("Restored and finetune new image size from: ", _ckpt_manager.latest_checkpoint)
+                ckpt.restore(_ckpt_manager.latest_checkpoint)
+        
+        del _ckpt_manager
     else:
-        print("Start from scratch")
+        if ckpt_manager.latest_checkpoint:
+            print("Restored from: ", ckpt_manager.latest_checkpoint)
+            ckpt.restore(ckpt_manager.latest_checkpoint)
+            epochs -= tf.keras.backend.get_value(ckpt.epoch)
+        else:
+            print("Start from scratch")
 
     model.fit(ds_train,
               epochs=epochs,
