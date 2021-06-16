@@ -87,7 +87,7 @@ def train(params: dict, model_fn,
         _ckpt_manager = tf.train.CheckpointManager(ckpt, restore_path, max_to_keep=1,)
         if _ckpt_manager.latest_checkpoint:
             print("Restored and finetune new image size from: ", _ckpt_manager.latest_checkpoint)
-                ckpt.restore(_ckpt_manager.latest_checkpoint)
+            ckpt.restore(_ckpt_manager.latest_checkpoint)
         
         del _ckpt_manager
     else:
