@@ -89,6 +89,13 @@ def train(params: dict, model_fn,
             print("Restored and finetune new image size from: ", _ckpt_manager.latest_checkpoint)
             ckpt.restore(_ckpt_manager.latest_checkpoint)
         
+        print("Frozen batch norm")
+        for layer in model.layers:
+            if isinstance(layer, tf.keras.layers.BatchNormalization):
+                layer.trainable = False
+            else:
+                layer.trainable = True
+                
         del _ckpt_manager
     else:
         if ckpt_manager.latest_checkpoint:
