@@ -105,7 +105,7 @@ def train(params: dict, model_fn,
         else:
             print("Start from scratch")
 
-    model.fit(ds_train,
+    hist = model.fit(ds_train,
               epochs=epochs,
               steps_per_epoch=steps_per_epoch,
               validation_data=ds_val,
@@ -120,6 +120,7 @@ def train(params: dict, model_fn,
     del model, emb_model
     gc.collect()
 
+    return hist
 
 def train_tpu(params: dict, model_fn,
               optimizer: tf.optimizers.Optimizer,

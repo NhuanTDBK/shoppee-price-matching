@@ -34,7 +34,7 @@ def parse_args():
     parser.add_argument("--smooth_ce", type=float, default=0.0)
     parser.add_argument("--warmup_epoch", type=int, default=10)
     parser.add_argument("--verbose", type=int, default=0)
-    parser.add_argument("--resume_fold", type=int, default=None)
+    parser.add_argument("--resume_fold", type=int, default=-1)
     parser.add_argument("--image_size", type=int, default=512)
     parser.add_argument("--check_period", type=int, default=5)
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
@@ -64,8 +64,8 @@ image_extractor_mapper = {
     "resnet150": tf.keras.applications.ResNet152,
     "resnet150_v2": tf.keras.applications.ResNet152V2,
     "inception_resnet_v2": tf.keras.applications.InceptionResNetV2,
-    "resnext50": ResNeXt50,
-    "resnext101": ResNeXt101,
+    # "resnext50": ResNeXt50,
+    # "resnext101": ResNeXt101,
 }
 
 
@@ -122,12 +122,12 @@ def main():
     param_grid = {'margin': [0.2,0.4,0.6,1.0] }
 
     for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(files, np.arange(n_folds))):
-        if params["resume_fold"] and params["resume_fold"] == fold_idx:
-            for param_test in ParameterGrid(param_grid):
+        if params["resume_fold"] == fold_idx:
+            for param_test in list(ParameterGrid(param_grid)):
                 for k, v in param_test.items():
                     print("Test param {} => {}".format(k,v))
                     params[k] = v            
-                    
+
                 ds_train = get_training_dataset(files[train_idx], params["batch_size"], image_size=IMAGE_SIZE)
                 ds_val = get_validation_dataset(files[valid_idx], params["batch_size"], image_size=IMAGE_SIZE)
 

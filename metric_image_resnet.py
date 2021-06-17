@@ -114,7 +114,7 @@ def main():
     cv = KFold(n_folds, shuffle=True, random_state=SEED)
     
     for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(files, np.arange(n_folds))):
-        if params["resume_fold"] and params["resume_fold"] != fold_idx:
+        if params["resume_fold"] != fold_idx:
             continue
 
         ds_train = get_training_dataset(files[train_idx], params["batch_size"], image_size=IMAGE_SIZE)
