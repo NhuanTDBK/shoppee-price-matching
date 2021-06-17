@@ -1,6 +1,7 @@
 import argparse
 import glob
 import os
+import shutil
 
 from sklearn.model_selection import ParameterGrid
 from sklearn.model_selection import KFold
@@ -157,7 +158,7 @@ def main():
                     max_score = current_score
                     best_params = params
                 
-                os.removedirs(model_dir)
+                shutil.rmtree(model_dir,ignore_errors=True,)
     
     print("Best score: {}, Params: {}".format(max_score, best_params))
 
