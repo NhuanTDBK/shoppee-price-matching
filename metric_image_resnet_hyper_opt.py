@@ -1,14 +1,17 @@
 import argparse
 import glob
 
+from sklearn.model_selection import ParameterGrid
 from sklearn.model_selection import KFold
 import tensorflow_addons as tfx
 
 from features.img import *
 from features.pool import LocalGlobalExtractor
 from modelling.metrics import MetricLearner
+
+# from contrastive.loader import get_training_dataset, get_validation_dataset
+
 from utils import *
-from modelling.resnext import ResNeXt50, ResNeXt101
 
 
 def parse_args():
@@ -37,7 +40,7 @@ def parse_args():
     parser.add_argument("--saved_path", type=str, default=get_disk_path())
     parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--is_checkpoint", type=bool, default=True)
-    parser.add_argument("--restore_path", type=str, default="")
+    parser.add_argument("--restore_path", type=str, default=None)
 
     args = parser.parse_args()
     params = vars(args)
@@ -113,32 +116,47 @@ def main():
     n_folds = len(files)
     cv = KFold(n_folds, shuffle=True, random_state=SEED)
     
+    max_score = 0.0
+    best_params = {}
+
+    param_grid = {'margin': [0.2,0.4,0.6,1.0] }
+
     for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(files, np.arange(n_folds))):
-        if params["resume_fold"] and params["resume_fold"] != fold_idx:
-            continue
+        if params["resume_fold"] and params["resume_fold"] == fold_idx:
+            for param_test in ParameterGrid(param_grid):
+                for k, v in param_test.items():
+                    print("Test param {} => {}".format(k,v))
+                    params[k] = v            
+                    
+                ds_train = get_training_dataset(files[train_idx], params["batch_size"], image_size=IMAGE_SIZE)
+                ds_val = get_validation_dataset(files[valid_idx], params["batch_size"], image_size=IMAGE_SIZE)
 
-        ds_train = get_training_dataset(files[train_idx], params["batch_size"], image_size=IMAGE_SIZE)
-        ds_val = get_validation_dataset(files[valid_idx], params["batch_size"], image_size=IMAGE_SIZE)
+                num_training_images = count_data_items(files[train_idx])
+                print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
 
-        num_training_images = count_data_items(files[train_idx])
-        print("Get fold %s, ds training, %s images" % (fold_idx + 1, num_training_images))
+                num_valid_images = count_data_items(files[valid_idx])
+                print("Get fold %s, ds valid, %s images" % (fold_idx + 1, num_valid_images))
 
-        num_valid_images = count_data_items(files[valid_idx])
-        print("Get fold %s, ds valid, %s images" % (fold_idx + 1, num_valid_images))
+                optimizers = tf.optimizers.Adam(learning_rate=params["lr"])
 
-        optimizers = tf.optimizers.Adam(learning_rate=params["lr"])
+                loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
+                metrics = tf.keras.metrics.SparseCategoricalAccuracy()
 
-        loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
-        metrics = tf.keras.metrics.SparseCategoricalAccuracy()
+                callbacks = [
+                    get_lr_callback(num_training_images),
+                    tf.keras.callbacks.TensorBoard(log_dir="logs-{}".format(fold_idx),histogram_freq=2)
+                ]
 
-        callbacks = [
-            get_lr_callback(num_training_images),
-            tf.keras.callbacks.TensorBoard(log_dir="logs-{}".format(fold_idx),histogram_freq=2)
-        ]
-
-        model_id = "fold_" + str(fold_idx)
-        
-        train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val, num_training_images, model_dir, model_id,params["restore_path"])
+                model_id = "fold_" + str(fold_idx)
+                
+                hist = train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val, num_training_images, model_dir, model_id,params["restore_path"])
+                
+                current_score = np.max(hist["val_sparse_categorical_accuracy"])
+                if current_score > max_score:
+                    max_score = current_score
+                    best_params = params
+    
+    print("Best score: {}, Params: {}".format(max_score, best_params))
 
 
 if __name__ == "__main__":
