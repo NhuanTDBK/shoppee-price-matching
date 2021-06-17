@@ -1,5 +1,6 @@
 import argparse
 import glob
+import os
 
 from sklearn.model_selection import ParameterGrid
 from sklearn.model_selection import KFold
@@ -155,6 +156,8 @@ def main():
                 if current_score > max_score:
                     max_score = current_score
                     best_params = params
+                
+                os.removedirs(model_dir)
     
     print("Best score: {}, Params: {}".format(max_score, best_params))
 
