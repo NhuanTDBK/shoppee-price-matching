@@ -150,7 +150,7 @@ def main():
 
                 model_id = "fold_" + str(fold_idx)
                 
-                hist = train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val, num_training_images, model_dir, model_id,params["restore_path"])
+                hist = train(params, create_model, optimizers, loss, metrics, callbacks, ds_train, ds_val, num_training_images, model_dir, model_id,params["restore_path"]).history
                 
                 current_score = np.max(hist["val_sparse_categorical_accuracy"])
                 if current_score > max_score:
