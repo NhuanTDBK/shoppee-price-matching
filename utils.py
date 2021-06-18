@@ -44,22 +44,16 @@ def get_disk_path():
 def train(params: dict, model_fn,
           optimizer: tf.optimizers.Optimizer,
           loss: tf.keras.losses.Loss, metrics, callbacks, ds_train, ds_val=None, num_training_images=None,
-          model_saved_dir=None, model_name=None,restore_path=None):
+          model_saved_dir=None, model_name=None, restore_path=None):
     model, emb_model = model_fn()
-    model.compile(optimizer, loss, metrics)
+    # model.compile(optimizer, loss, metrics)
 
     ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, epoch=tf.Variable(0))
 
     ckpt_dir = os.path.join(model_saved_dir, model_name)
     os.makedirs(ckpt_dir, exist_ok=True)
 
-    ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=1,)
-
-    model.compile(
-        optimizer=optimizer,
-        loss=loss,
-        metrics=metrics
-    )
+    ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_dir, max_to_keep=1, )
 
     if not callbacks:
         callbacks = []
@@ -74,7 +68,8 @@ def train(params: dict, model_fn,
         callbacks.append(CheckpointCallback(ckpt_manager, params["check_period"]))
 
     if not any([isinstance(cb, tf.keras.callbacks.ModelCheckpoint) for cb in callbacks]):
-        callbacks.append(tf.keras.callbacks.ModelCheckpoint(ckpt_dir+"_train.h5", verbose=1, save_best_only=True, save_weights_only=True))
+        callbacks.append(tf.keras.callbacks.ModelCheckpoint(ckpt_dir + "_train.h5", verbose=1, save_best_only=True,
+                                                            save_weights_only=True))
 
     # if not any([isinstance(cb, tf.keras.callbacks.EarlyStopping) for cb in callbacks]):
     #     callbacks.append(tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=params["patience"],
@@ -84,18 +79,18 @@ def train(params: dict, model_fn,
     epochs = params["epochs"]
 
     if restore_path:
-        _ckpt_manager = tf.train.CheckpointManager(ckpt, restore_path, max_to_keep=1,)
+        _ckpt_manager = tf.train.CheckpointManager(ckpt, restore_path, max_to_keep=1, )
         if _ckpt_manager.latest_checkpoint:
             print("Restored and finetune new image size from: ", _ckpt_manager.latest_checkpoint)
             ckpt.restore(_ckpt_manager.latest_checkpoint)
-        
+
         # print("Frozen batch norm")
         # for layer in model.layers:
         #     if isinstance(layer, tf.keras.layers.BatchNormalization):
         #         layer.trainable = False
         #     else:
         #         layer.trainable = True
-                
+
         del _ckpt_manager
     else:
         if ckpt_manager.latest_checkpoint:
@@ -105,11 +100,17 @@ def train(params: dict, model_fn,
         else:
             print("Start from scratch")
 
+    model.compile(
+        optimizer=optimizer,
+        loss=loss,
+        metrics=metrics
+    )
+
     hist = model.fit(ds_train,
-              epochs=epochs,
-              steps_per_epoch=steps_per_epoch,
-              validation_data=ds_val,
-              callbacks=callbacks)
+                     epochs=epochs,
+                     steps_per_epoch=steps_per_epoch,
+                     validation_data=ds_val,
+                     callbacks=callbacks)
 
     path = os.path.join(model_saved_dir, model_name)
     print("Saved model to ", path)
@@ -121,6 +122,7 @@ def train(params: dict, model_fn,
     gc.collect()
 
     return hist
+
 
 def train_tpu(params: dict, model_fn,
               optimizer: tf.optimizers.Optimizer,
@@ -336,8 +338,6 @@ def get_linear_decay(params):
 #     lr_callback = LearningRateSchedulerPerBatch(lrfn, verbose=True)
 #
 #     return lr_callback
-
-
 
 
 if __name__ == '__main__':

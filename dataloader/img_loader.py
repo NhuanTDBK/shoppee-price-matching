@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+
 AUTO = tf.data.experimental.AUTOTUNE
 
 image_feature_description = {
@@ -15,14 +16,14 @@ def arcface_format(posting_id, image, label_group, matches):
 
 
 # Data augmentation function
-def data_augment(posting_id, image, label_group, matches):
+def data_augment(image):
     image = tf.image.random_flip_left_right(image)
     # image = tf.image.random_flip_up_down(image)
     image = tf.image.random_hue(image, 0.01)
     image = tf.image.random_saturation(image, 0.70, 1.30)
     image = tf.image.random_contrast(image, 0.80, 1.20)
     image = tf.image.random_brightness(image, 0.10)
-    return posting_id, image, label_group, matches
+    return image
 
 
 # Function to decode our images
@@ -58,24 +59,6 @@ def normalize_image(image):
 
 def resize(img, h, w):
     return tf.image.resize(img, (tf.int32(h), tf.cast(w, tf.int32)))
-
-
-def decode_image_random_scale(image_data, IMAGE_SIZE=(512, 512), scale_range=(256, 512)):
-    image = tf.image.decode_jpeg(image_data, channels=3)
-
-    shape = tf.io.extract_jpeg_shape(image_data)
-    height, width = shape[0], shape[1]
-    scale = tf.round(tf.random.uniform(shape=[], minval=scale_range[0], maxval=scale_range[1]))
-    scale = tf.cast(scale, tf.int32)
-    image = tf.cond(tf.less_equal(width, height),
-                    lambda: resize(image, scale, tf.round(scale * height / width)),
-                    lambda: resize(image, tf.round(scale * width / height), scale))
-
-    image = tf.image.random_crop(image, (224, 224, 3))
-    image = normalize_image(image)
-
-    image = tf.reshape(image, [224, 224, 3])
-    return image
 
 
 @tf.function
@@ -179,27 +162,16 @@ def load_dataset_multi_scale(filenames, ordered=False, image_size=(512, 512)):
     return dataset
 
 
-def get_training_dataset(filenames, batch_size, ordered=False, image_size=(512, 512),shuffle=True,one_shot=False):
+def get_training_dataset(filenames, batch_size, ordered=False, image_size=(512, 512), shuffle=True, one_shot=False):
     dataset = load_dataset(filenames, ordered=ordered, image_size=image_size)
-    dataset = dataset.map(data_augment, num_parallel_calls=AUTO)
+    dataset = dataset.map(
+        lambda posting_id, image, label_group, matches: (posting_id, data_augment(image), label_group, matches),
+        num_parallel_calls=AUTO)
     dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
     if not one_shot:
         dataset = dataset.repeat()
     if shuffle:
         dataset = dataset.shuffle(1024)
-    dataset = dataset.batch(batch_size)
-    dataset = dataset.prefetch(AUTO)
-    dataset = dataset.map(lambda posting_id, image, label_group, matches: (image, label_group))
-
-    return dataset
-
-
-def get_training_dataset_multi_scale(filenames, batch_size, ordered=False, image_size=(512, 512)):
-    dataset = load_dataset_multi_scale(filenames, ordered=ordered, image_size=image_size)
-    dataset = dataset.map(data_augment, num_parallel_calls=AUTO)
-    dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
-    dataset = dataset.repeat()
-    dataset = dataset.shuffle(1024)
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(AUTO)
     dataset = dataset.map(lambda posting_id, image, label_group, matches: (image, label_group))
@@ -213,6 +185,5 @@ def get_validation_dataset(filenames, batch_size, ordered=True, image_size=(512,
     dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(AUTO)
-
     dataset = dataset.map(lambda posting_id, image, label_group, matches: (image, label_group))
     return dataset

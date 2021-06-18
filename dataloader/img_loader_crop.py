@@ -242,6 +242,11 @@ def get_training_dataset(filenames, batch_size, ordered=False, image_size=(224, 
     dataset = load_dataset(filenames, read_labeled_tfrecord, ordered=ordered)
     dataset = dataset.map(lambda image, label: (data_augment(image), label))
     dataset = dataset.map(lambda image, label: (preprocess_for_train(image, image_size[0]), label))
+    dataset = dataset.map(lambda image, label: ({'inp1': image, 'inp2': label}, label))
+
+    dataset = dataset.repeat()
+    dataset = dataset.shuffle(1024)
+
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(AUTO)
 
@@ -252,6 +257,7 @@ def get_training_dataset(filenames, batch_size, ordered=False, image_size=(224, 
 def get_validation_dataset(filenames, batch_size, ordered=True, image_size=(224, 224)):
     dataset = load_dataset(filenames, read_labeled_tfrecord, ordered=ordered, )
     dataset = dataset.map(lambda image, label: (preprocess_for_eval(image, image_size[0]), label))
+    dataset = dataset.map(lambda image, label: ({'inp1': image, 'inp2': label}, label))
     # dataset = dataset.map(lambda image, label: (normalize_image(image), label))
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(AUTO)
