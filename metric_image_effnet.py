@@ -3,7 +3,7 @@ import argparse
 import efficientnet.tfkeras as efn
 from sklearn.model_selection import KFold
 
-from features.img import *
+from dataloader.img_loader import *
 from features.pool import LocalGlobalExtractor
 from modelling.metrics import MetricLearner
 from utils import *

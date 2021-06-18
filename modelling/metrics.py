@@ -285,7 +285,7 @@ class MetricLearner(layers.Layer):
     def call(self, inputs, training=None, mask=None):
         x, y = inputs
         x = self.metric_layer([x, y])
-        x = layers.Softmax(dtype=x.dtype)(x)
+        x = layers.Softmax(dtype=tf.float32)(x)
         return x
 
     def compute_output_shape(self, input_shape):

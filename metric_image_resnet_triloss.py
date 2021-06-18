@@ -2,7 +2,7 @@ import argparse
 
 import tensorflow_addons as tfx
 
-from contrastive.loader import get_validation_dataset, get_training_dataset
+from dataloader.img_loader_crop import *
 from features.pool import LocalGlobalExtractor
 from utils import *
 

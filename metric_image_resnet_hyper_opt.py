@@ -7,7 +7,7 @@ from sklearn.model_selection import ParameterGrid
 from sklearn.model_selection import KFold
 import tensorflow_addons as tfx
 
-from features.img import *
+from dataloader.img_loader import *
 from features.pool import LocalGlobalExtractor
 from modelling.metrics import MetricLearner
 
