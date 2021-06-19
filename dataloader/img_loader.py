@@ -147,21 +147,6 @@ def load_dataset(filenames, ordered=False, image_size=(512, 512)):
     return dataset
 
 
-def load_dataset_multi_scale(filenames, ordered=False, image_size=(512, 512)):
-    ignore_order = tf.data.Options()
-    if not ordered:
-        ignore_order.experimental_deterministic = False
-
-    dataset = tf.data.TFRecordDataset(filenames, num_parallel_reads=AUTO)
-    dataset = dataset.cache()
-    dataset = dataset.with_options(ignore_order)
-    dataset = dataset.map(
-        lambda example: read_labeled_tfrecord(example, decode_image_random_scale, image_size=image_size),
-        num_parallel_calls=AUTO)
-
-    return dataset
-
-
 def get_training_dataset(filenames, batch_size, ordered=False, image_size=(512, 512), shuffle=True, one_shot=False):
     dataset = load_dataset(filenames, ordered=ordered, image_size=image_size)
     dataset = dataset.map(

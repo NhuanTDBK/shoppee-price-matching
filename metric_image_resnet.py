@@ -3,7 +3,7 @@ import argparse
 from sklearn.model_selection import KFold
 
 import dataloader.img_loader as img_loader
-import dataloader.img_loader_crop as img_loader_crop
+import dataloader.img_loader_crop_v2 as img_loader_crop
 from features.pool import LocalGlobalExtractor
 from modelling.metrics import MetricLearner
 from modelling.resnext import ResNeXt50, ResNeXt101
