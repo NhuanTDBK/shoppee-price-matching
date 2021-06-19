@@ -1,7 +1,5 @@
 import tensorflow as tf
 
-# import tensorflow.compat.v1 as tf
-
 AUTO = tf.data.experimental.AUTOTUNE
 image_feature_description = {
     'posting_id': tf.io.FixedLenFeature([], tf.string),
@@ -47,7 +45,7 @@ def distorted_bounding_box_crop(image_bytes,
     Returns:
       cropped image `Tensor`
     """
-    with tf.name_scope(scope):
+    with tf.name_scope("distorted_bounding_box_crop"):
         shape = tf.image.extract_jpeg_shape(image_bytes)
         sample_distorted_bounding_box = tf.image.sample_distorted_bounding_box(
             shape,
@@ -231,10 +229,10 @@ def data_augment(image):
 
 def _normalize(image):
     """Normalize the image to zero mean and unit variance."""
-    offset = tf.constant(MEAN_RGB, shape=[1, 1, 3])
+    offset = tf.constant(MEAN_RGB, shape=[1, 1, 3], dtype=image.dtype)
     image -= offset
 
-    # scale = tf.constant(STDDEV_RGB, shape=[1, 1, 3])
+    # scale = tf.constant(STDDEV_RGB, shape=[1, 1, 3],dtype=image.dtype)
     # image /= scale
     return image
 
