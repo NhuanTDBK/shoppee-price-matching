@@ -26,7 +26,8 @@ def data_augment(image, num_layers=2, magnitude=5):
 def decode_image(image_data, IMAGE_SIZE=(512, 512)):
     image = tf.image.decode_jpeg(image_data, channels=3)
     image = tf.image.resize(image, IMAGE_SIZE)
-    image = normalize_image(image)
+    image = tf.cast(image,tf.uint8)
+
     return image
 
 
@@ -113,9 +114,9 @@ def read_labeled_tfrecord(example, decode_func, image_size=(512, 512)):
     example = tf.io.parse_single_example(example, image_feature_description)
     posting_id = example['posting_id']
     image = decode_func(example['image'], image_size)
-    #     label_group = tf.one_hot(tf.cast(example['label_group'], tf.int32), depth = N_CLASSES)
     label_group = tf.cast(example['label_group'], tf.int32)
     matches = example['matches']
+
     return posting_id, image, label_group, matches
 
 
@@ -139,6 +140,10 @@ def get_training_dataset(filenames, batch_size, ordered=False, image_size=(512, 
     dataset = dataset.map(
         lambda posting_id, image, label_group, matches: (posting_id, data_augment(image), label_group, matches),
         num_parallel_calls=AUTO)
+    dataset = dataset.map(
+        lambda posting_id, image, label_group, matches: (posting_id, normalize_image(image), label_group, matches),
+        num_parallel_calls=AUTO)
+
     dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
     if not one_shot:
         dataset = dataset.repeat()
