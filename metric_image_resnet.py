@@ -3,7 +3,7 @@ import argparse
 from sklearn.model_selection import KFold
 
 import dataloader.img_loader as img_loader
-import dataloader.img_loader_crop_v2 as img_loader_crop
+import dataloader.img_loader_rand_aug as img_loader_rand
 from features.pool import LocalGlobalExtractor
 from modelling.metrics import MetricLearner
 from modelling.resnext import ResNeXt50, ResNeXt101
@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--is_checkpoint", type=bool, default=True)
     parser.add_argument("--restore_path", type=str, default="")
-    parser.add_argument("--random_crop", type=bool, default=False)
+    parser.add_argument("--random_aug", type=bool, default=False)
 
     args = parser.parse_args()
     params = vars(args)
@@ -143,11 +143,11 @@ if __name__ == "__main__":
         "resnext101": ResNeXt101,
     }
 
-    if not params["random_crop"]:
+    if not params["random_aug"]:
         get_training_dataset = img_loader.get_training_dataset
         get_validation_dataset = img_loader.get_validation_dataset
     else:
-        get_training_dataset = img_loader_crop.get_training_dataset
-        get_validation_dataset = img_loader_crop.get_validation_dataset
+        get_training_dataset = img_loader_rand.get_training_dataset
+        get_validation_dataset = img_loader_rand.get_validation_dataset
 
     main()
