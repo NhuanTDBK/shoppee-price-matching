@@ -17,7 +17,7 @@ def arcface_format(posting_id, image, label_group, matches):
 
 
 # Data augmentation function
-def data_augment(image, num_layers=2, magnitude=5):
+def data_augment(image, num_layers=2, magnitude=10):
     image = distort_image_with_randaugment(image, num_layers, magnitude)
     return image
 
@@ -26,7 +26,7 @@ def data_augment(image, num_layers=2, magnitude=5):
 def decode_image(image_data, IMAGE_SIZE=(512, 512)):
     image = tf.image.decode_jpeg(image_data, channels=3)
     image = tf.image.resize(image, IMAGE_SIZE)
-    image = tf.cast(image,tf.uint8)
+    image = tf.cast(image, tf.uint8)
 
     return image
 
@@ -39,14 +39,10 @@ def normalize_image(image):
     # image /= tf.constant([0.229,0.224,0.225])
 
     # Shopee 224
-    image -= tf.constant([0.18064207, 0.17303748, 0.16691259])
-    image /= tf.constant([0.07423419, 0.0760114, 0.08046484])
+    # image -= tf.constant([0.18064207, 0.17303748, 0.16691259])
+    # image /= tf.constant([0.07423419, 0.0760114, 0.08046484])
 
     return image
-
-
-def resize(img, h, w):
-    return tf.image.resize(img, (tf.int32(h), tf.cast(w, tf.int32)))
 
 
 @tf.function
@@ -135,10 +131,18 @@ def load_dataset(filenames, ordered=False, image_size=(512, 512)):
     return dataset
 
 
-def get_training_dataset(filenames, batch_size, ordered=False, image_size=(512, 512), shuffle=True, one_shot=False):
+def get_training_dataset(filenames,
+                         batch_size,
+                         ordered=False,
+                         image_size=(512, 512),
+                         shuffle=True,
+                         one_shot=False,
+                         num_layers=2,
+                         magnitude=10):
     dataset = load_dataset(filenames, ordered=ordered, image_size=image_size)
     dataset = dataset.map(
-        lambda posting_id, image, label_group, matches: (posting_id, data_augment(image), label_group, matches),
+        lambda posting_id, image, label_group, matches: (
+            posting_id, data_augment(image, num_layers, magnitude), label_group, matches),
         num_parallel_calls=AUTO)
     dataset = dataset.map(
         lambda posting_id, image, label_group, matches: (posting_id, normalize_image(image), label_group, matches),
@@ -157,7 +161,11 @@ def get_training_dataset(filenames, batch_size, ordered=False, image_size=(512, 
 
 
 # This function is to get our validation tensors
-def get_validation_dataset(filenames, batch_size, ordered=True, image_size=(512, 512)):
+def get_validation_dataset(filenames,
+                           batch_size,
+                           ordered=True,
+                           image_size=(512, 512)):
+
     dataset = load_dataset(filenames, ordered=ordered, image_size=image_size)
     dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
     dataset = dataset.batch(batch_size)
