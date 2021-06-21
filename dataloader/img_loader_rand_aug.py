@@ -131,44 +131,45 @@ def load_dataset(filenames, ordered=False, image_size=(512, 512)):
     return dataset
 
 
-def get_training_dataset(filenames,
-                         batch_size,
-                         ordered=False,
-                         image_size=(512, 512),
-                         shuffle=True,
-                         one_shot=False,
-                         num_layers=2,
-                         magnitude=10):
+def get_training_dataset(filenames, batch_size, ordered=False, image_size=(512, 512), shuffle=True, one_shot=False,
+                         num_layers=3, magnitude=10):
     dataset = load_dataset(filenames, ordered=ordered, image_size=image_size)
     dataset = dataset.map(
         lambda posting_id, image, label_group, matches: (
-            posting_id, data_augment(image, num_layers, magnitude), label_group, matches),
+        posting_id, data_augment(image, num_layers, magnitude), label_group, matches),
         num_parallel_calls=AUTO)
     dataset = dataset.map(
         lambda posting_id, image, label_group, matches: (posting_id, normalize_image(image), label_group, matches),
         num_parallel_calls=AUTO)
 
     dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
+
     if not one_shot:
         dataset = dataset.repeat()
+
     if shuffle:
         dataset = dataset.shuffle(2048)
+
     dataset = dataset.batch(batch_size)
+
     dataset = dataset.prefetch(AUTO)
+
     dataset = dataset.map(lambda posting_id, image, label_group, matches: (image, label_group))
 
     return dataset
 
 
 # This function is to get our validation tensors
-def get_validation_dataset(filenames,
-                           batch_size,
-                           ordered=True,
-                           image_size=(512, 512)):
-
+def get_validation_dataset(filenames, batch_size, ordered=True, image_size=(512, 512)):
     dataset = load_dataset(filenames, ordered=ordered, image_size=image_size)
+    dataset = dataset.map(
+        lambda posting_id, image, label_group, matches: (posting_id, normalize_image(image), label_group, matches),
+        num_parallel_calls=AUTO)
+
     dataset = dataset.map(arcface_format, num_parallel_calls=AUTO)
+
     dataset = dataset.batch(batch_size)
+
     dataset = dataset.prefetch(AUTO)
     dataset = dataset.map(lambda posting_id, image, label_group, matches: (image, label_group))
     return dataset
