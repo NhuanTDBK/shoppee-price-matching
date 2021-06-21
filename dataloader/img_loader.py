@@ -1,6 +1,5 @@
 import tensorflow as tf
 
-
 AUTO = tf.data.experimental.AUTOTUNE
 
 image_feature_description = {

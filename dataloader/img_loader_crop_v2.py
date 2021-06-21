@@ -140,10 +140,8 @@ def preprocess_for_train(image_bytes, use_bfloat16, image_size=IMAGE_SIZE,
     image = _decode_and_random_crop(image_bytes, image_size)
     # image = _flip(image)
     image = tf.reshape(image, [image_size, image_size, 3])
-    image = tf.image.convert_image_dtype(
-        image, dtype=tf.bfloat16 if use_bfloat16 else tf.float32)
-
-    image = _normalize(image)
+    # image = tf.image.convert_image_dtype(
+    #     image, dtype=tf.bfloat16 if use_bfloat16 else tf.float32)
 
     return image
 
@@ -159,10 +157,10 @@ def preprocess_for_eval(image_bytes, use_bfloat16, image_size=IMAGE_SIZE):
     """
     image = _decode_and_center_crop(image_bytes, image_size)
     image = tf.reshape(image, [image_size, image_size, 3])
-    image = tf.image.convert_image_dtype(
-        image, dtype=tf.bfloat16 if use_bfloat16 else tf.float32)
+    # image = tf.image.convert_image_dtype(
+    #     image, dtype=tf.bfloat16 if use_bfloat16 else tf.float32)
 
-    image = _normalize(image)
+    # image = _normalize(image)
 
     return image
 
@@ -228,6 +226,8 @@ def data_augment(image):
 
 
 def _normalize(image):
+    image = tf.cast(image, tf.float32) / 255.0
+
     """Normalize the image to zero mean and unit variance."""
     offset = tf.constant(MEAN_RGB, shape=[1, 1, 3], dtype=image.dtype)
     image -= offset
@@ -237,13 +237,16 @@ def _normalize(image):
     return image
 
 
-def get_training_dataset(filenames, batch_size, ordered=False, image_size=(224, 224)):
+def get_training_dataset(filenames, batch_size, ordered=False, one_shot=False, image_size=(224, 224)):
     dataset = load_dataset(filenames, read_labeled_tfrecord, ordered=ordered)
     dataset = dataset.map(lambda image_bytes, label: (preprocess_for_train(image_bytes, image_size[0]), label))
     dataset = dataset.map(lambda image, label: (data_augment(image), label))
+    dataset = dataset.map(lambda image, label: (_normalize(image), label))
     dataset = dataset.map(lambda image, label: ({'inp1': image, 'inp2': label}, label))
 
-    dataset = dataset.repeat()
+    if not one_shot:
+        dataset = dataset.repeat()
+
     dataset = dataset.shuffle(1024)
 
     dataset = dataset.batch(batch_size)
@@ -254,8 +257,9 @@ def get_training_dataset(filenames, batch_size, ordered=False, image_size=(224, 
 
 # This function is to get our validation tensors
 def get_validation_dataset(filenames, batch_size, ordered=True, image_size=(224, 224)):
-    dataset = load_dataset(filenames, read_labeled_tfrecord, ordered=ordered, )
+    dataset = load_dataset(filenames, read_labeled_tfrecord, ordered=ordered,)
     dataset = dataset.map(lambda image_bytes, label: (preprocess_for_eval(image_bytes, image_size[0]), label))
+    dataset = dataset.map(lambda image, label: (_normalize(image), label))
     dataset = dataset.map(lambda image, label: ({'inp1': image, 'inp2': label}, label))
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(AUTO)

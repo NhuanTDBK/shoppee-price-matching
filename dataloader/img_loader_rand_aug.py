@@ -148,7 +148,7 @@ def get_training_dataset(filenames, batch_size, ordered=False, image_size=(512, 
     if not one_shot:
         dataset = dataset.repeat()
     if shuffle:
-        dataset = dataset.shuffle(1024)
+        dataset = dataset.shuffle(2048)
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(AUTO)
     dataset = dataset.map(lambda posting_id, image, label_group, matches: (image, label_group))
